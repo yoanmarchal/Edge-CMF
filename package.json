@@ -1,0 +1,27 @@
+{
+  "name": "edge-cmf",
+  "private": true,
+  "version": "3.0.0",
+  "description": "CMF 100% Edge-natif — Astro SSR + Micro-Workers Hono/Drizzle/D1 (Cahier des charges v3)",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present",
+    "dev:content": "npm run dev -w @edge-cmf/content-worker",
+    "dev:auth": "npm run dev -w @edge-cmf/auth-worker",
+    "dev:front": "npm run dev -w @edge-cmf/frontend",
+    "deploy:workers": "npm run deploy -w @edge-cmf/content-worker && npm run deploy -w @edge-cmf/auth-worker",
+    "deploy:front": "npm run deploy -w @edge-cmf/frontend",
+    "db:migrate:local": "npm run db:migrate:local -w @edge-cmf/content-worker && npm run db:migrate:local -w @edge-cmf/auth-worker",
+    "db:migrate:remote": "npm run db:migrate:remote -w @edge-cmf/content-worker && npm run db:migrate:remote -w @edge-cmf/auth-worker"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

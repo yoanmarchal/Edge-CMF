@@ -1,0 +1,26 @@
+{
+  "name": "@edge-cmf/frontend",
+  "version": "3.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "wrangler pages dev ./dist",
+    "deploy": "astro build && wrangler pages deploy ./dist --project-name=edge-cmf",
+    "typecheck": "astro sync && tsc --noEmit"
+  },
+  "dependencies": {
+    "@astrojs/cloudflare": "^12.2.1",
+    "@edge-cmf/shared-types": "*",
+    "astro": "^5.1.6",
+    "hono": "^4.6.16",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@edge-cmf/auth-worker": "*",
+    "@edge-cmf/content-worker": "*",
+    "typescript": "^5.7.3",
+    "wrangler": "^4.0.0"
+  }
+}

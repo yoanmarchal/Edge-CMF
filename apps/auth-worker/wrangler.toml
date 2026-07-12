@@ -1,0 +1,20 @@
+# Worker d'Authentification — SERVICE INTERNE UNIQUEMENT
+# Cahier des charges v3 §3 : aucune route publique déclarée.
+name = "auth-worker"
+main = "src/index.ts"
+compatibility_date = "2025-06-01"
+
+workers_dev = false
+
+# BDD dédiée aux utilisateurs (isolation des données, cahier v2 §4)
+[[d1_databases]]
+binding = "DB"
+database_name = "edge-cmf-users"
+# Remplacer par l'ID réel après `wrangler d1 create edge-cmf-users`
+database_id = "b4bd0099-0c19-42fe-9273-34bb84888f9e"
+migrations_dir = "migrations"
+
+# Secrets (à définir via `wrangler secret put JWT_SECRET`
+# et localement dans .dev.vars) :
+# JWT_SECRET  — clé de signature des JWT
+# SETUP_TOKEN — jeton unique autorisant la création du premier admin

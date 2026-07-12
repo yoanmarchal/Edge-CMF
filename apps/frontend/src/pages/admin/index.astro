@@ -1,0 +1,76 @@
+---
+import Base from '../../layouts/Base.astro';
+import { authClient, SESSION_COOKIE } from '../../lib/api';
+import type { UserContext } from '@edge-cmf/shared-types';
+
+const env = Astro.locals.runtime.env;
+const token = Astro.cookies.get(SESSION_COOKIE)?.value;
+
+let user: UserContext | null = null;
+if (token !== undefined) {
+  const res = await authClient(env).validate.$get(undefined, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (res.ok) {
+    const body = await res.json();
+    user = body.user;
+  }
+}
+
+const error = Astro.url.searchParams.get('error');
+const ok = Astro.url.searchParams.get('ok');
+const canWrite = user !== null && (user.role === 'admin' || user.role === 'editor');
+---
+
+<Base title="Administration — CMF Edge">
+  <h1>Administration</h1>
+
+  {error !== null && <p class="notice error">Erreur : {error}</p>}
+  {ok !== null && <p class="notice ok">Opération réussie.</p>}
+
+  {user === null ? (
+    <section>
+      <h2>Connexion</h2>
+      <form method="post" action="/api/login">
+        <label for="email">Email</label>
+        <input id="email" name="email" type="email" required />
+        <label for="password">Mot de passe</label>
+        <input id="password" name="password" type="password" minlength="8" required />
+        <button type="submit">Se connecter</button>
+      </form>
+    </section>
+  ) : (
+    <section>
+      <p>
+        Connecté : <strong>{user.email}</strong> (rôle : {user.role})
+        <form method="post" action="/api/logout" style="display:inline">
+          <button type="submit">Déconnexion</button>
+        </form>
+      </p>
+
+      {canWrite ? (
+        <>
+          <h2>Créer un nœud de contenu</h2>
+          <form method="post" action="/api/nodes">
+            <label for="title">Titre</label>
+            <input id="title" name="title" minlength="3" maxlength="255" required />
+            <label for="slug">Slug (a-z, 0-9, tirets)</label>
+            <input id="slug" name="slug" pattern="[a-z0-9-]+" required />
+            <label for="contentType">Type</label>
+            <select id="contentType" name="contentType">
+              <option value="article">Article</option>
+              <option value="page">Page</option>
+              <option value="product">Produit</option>
+            </select>
+            <label for="body">Contenu</label>
+            <textarea id="body" name="body" rows="8" required></textarea>
+            <label><input type="checkbox" name="status" checked /> Publié</label>
+            <button type="submit">Créer</button>
+          </form>
+        </>
+      ) : (
+        <p>Votre rôle ne permet pas de créer du contenu.</p>
+      )}
+    </section>
+  )}
+</Base>

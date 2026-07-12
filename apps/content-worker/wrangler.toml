@@ -1,0 +1,22 @@
+# Worker de Contenu — SERVICE INTERNE UNIQUEMENT
+# Cahier des charges v3 §3 : aucune route publique déclarée.
+# Ce worker n'est joignable que via Service Binding depuis le front Astro.
+name = "content-worker"
+main = "src/index.ts"
+compatibility_date = "2025-06-01"
+
+# Pas de [routes], pas de workers_dev : invisible depuis Internet.
+workers_dev = false
+
+[[d1_databases]]
+binding = "DB"
+database_name = "edge-cmf-content"
+# Remplacer par l'ID réel après `wrangler d1 create edge-cmf-content`
+database_id = "4e1399ec-8c5c-4c7e-8f30-fcda02598d6f"
+migrations_dir = "migrations"
+
+# KV utilisé pour le versionnage du cache (invalidation par tag, cahier v1 §3.3)
+[[kv_namespaces]]
+binding = "CACHE_KV"
+# Remplacer par l'ID réel après `wrangler kv namespace create CACHE_KV`
+id = "a8b2d2ae1d5143b3abb8f5426ff69183"

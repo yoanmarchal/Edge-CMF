@@ -1,0 +1,53 @@
+---
+interface Props {
+  title: string;
+}
+const { title } = Astro.props;
+---
+
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        font-family: system-ui, sans-serif;
+      }
+      body {
+        max-width: 46rem;
+        margin: 0 auto;
+        padding: 2rem 1rem;
+        line-height: 1.6;
+      }
+      nav {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 2rem;
+        border-bottom: 1px solid #8884;
+        padding-bottom: 0.75rem;
+      }
+      form {
+        display: grid;
+        gap: 0.5rem;
+        max-width: 28rem;
+        margin-block: 1rem;
+      }
+      input, textarea, select, button {
+        font: inherit;
+        padding: 0.4rem 0.6rem;
+      }
+      .notice { padding: 0.5rem 0.75rem; border-radius: 4px; }
+      .notice.error { background: #c0392b22; border: 1px solid #c0392b; }
+      .notice.ok { background: #27ae6022; border: 1px solid #27ae60; }
+    </style>
+  </head>
+  <body>
+    <nav>
+      <a href="/">Accueil</a>
+      <a href="/admin">Admin</a>
+    </nav>
+    <slot />
+  </body>
+</html>

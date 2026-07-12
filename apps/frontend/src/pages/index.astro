@@ -1,0 +1,34 @@
+---
+import Base from '../layouts/Base.astro';
+import { contentClient } from '../lib/api';
+
+// Astro permet d'accéder aux bindings configurés sur Cloudflare Pages (cahier v3 §4.2)
+const env = Astro.locals.runtime.env;
+const client = contentClient(env);
+
+// Appel fortement typé : TypeScript sait exactement ce que contient `data`
+const res = await client.api.articles.$get({ query: {} });
+const articles = res.ok ? (await res.json()).data : null;
+---
+
+<Base title="Mon CMF Edge">
+  <h1>Derniers Articles</h1>
+  {articles === null ? (
+    <p class="notice error">
+      Le service de contenu est indisponible. Vérifie que le content-worker tourne
+      et que les migrations D1 locales sont appliquées (<code>npm run db:migrate:local</code>).
+    </p>
+  ) : articles.length === 0 ? (
+    <p>Aucun contenu publié pour le moment.</p>
+  ) : (
+    <ul>
+      {/* Auto-complétion active sur article.title et article.slug */}
+      {articles.map((article) => (
+        <li>
+          <a href={`/${article.slug}`}>{article.title}</a>
+          <small> — {article.contentType}</small>
+        </li>
+      ))}
+    </ul>
+  )}
+</Base>

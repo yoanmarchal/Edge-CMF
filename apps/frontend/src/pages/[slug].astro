@@ -1,0 +1,25 @@
+---
+import Base from '../layouts/Base.astro';
+import { contentClient } from '../lib/api';
+
+const { slug } = Astro.params;
+if (slug === undefined || !/^[a-z0-9-]+$/.test(slug)) {
+  return new Response('Page non trouvée', { status: 404 });
+}
+
+const client = contentClient(Astro.locals.runtime.env);
+const res = await client.api.nodes[':slug'].$get({ param: { slug } });
+
+if (!res.ok) {
+  return new Response('Page non trouvée', { status: 404 });
+}
+const { data: node } = await res.json();
+---
+
+<Base title={node.title}>
+  <article>
+    <h1>{node.title}</h1>
+    <p><small>Type : {node.contentType}</small></p>
+    <div>{node.body}</div>
+  </article>
+</Base>
