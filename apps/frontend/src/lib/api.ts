@@ -21,3 +21,20 @@ export function authClient(env: Env) {
 }
 
 export const SESSION_COOKIE = 'cmf_session';
+
+/** Charge les types de paragraphes avec leurs définitions de champs. */
+export async function loadParagraphTypes(client: ReturnType<typeof contentClient>) {
+  const res = await client.api.types.$get({ query: { kind: 'paragraph' } });
+  if (!res.ok) return [];
+  const { data } = await res.json();
+  const out: { id: string; label: string; fields: import('@edge-cmf/shared-types').FieldDef[] }[] =
+    [];
+  for (const t of data) {
+    const d = await client.api.types[':id'].$get({ param: { id: t.id } });
+    if (d.ok) {
+      const { data: detail } = await d.json();
+      out.push({ id: t.id, label: t.label, fields: detail.fields });
+    }
+  }
+  return out;
+}

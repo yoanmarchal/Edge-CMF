@@ -1,11 +1,52 @@
 import type { APIRoute } from 'astro';
 import { z } from 'zod';
-import { insertNodeSchema, updateNodeSchema, machineNameSchema } from '@edge-cmf/shared-types';
+import {
+  insertNodeSchema,
+  updateNodeSchema,
+  machineNameSchema,
+  type InsertParagraph,
+  type FieldDef,
+} from '@edge-cmf/shared-types';
 import { contentClient } from '../../../lib/api';
 import { getSessionUser, canWrite } from '../../../lib/session';
 import { parseFieldValues } from '../../../lib/fields';
 
 const uuid = z.string().uuid();
+
+/**
+ * Reconstruit les paragraphes depuis le formulaire :
+ * inputs nommés p_<i>_type et p_<i>_field_<name> (ordre = ordre du DOM).
+ */
+async function parseParagraphs(
+  form: FormData,
+  client: ReturnType<typeof contentClient>,
+): Promise<InsertParagraph[]> {
+  const indices = [...form.keys()]
+    .map((k) => /^p_(\d+)_type$/.exec(k))
+    .filter((m): m is RegExpExecArray => m !== null)
+    .map((m) => Number(m[1]))
+    .sort((a, b) => a - b);
+
+  const defsCache = new Map<string, FieldDef[]>();
+  const out: InsertParagraph[] = [];
+  for (const i of indices) {
+    const ptype = machineNameSchema.safeParse(form.get(`p_${i}_type`));
+    if (!ptype.success) continue;
+    if (!defsCache.has(ptype.data)) {
+      const res = await client.api.types[':id'].$get({ param: { id: ptype.data } });
+      if (!res.ok) continue;
+      const { data } = await res.json();
+      defsCache.set(ptype.data, data.fields);
+    }
+    const defs = defsCache.get(ptype.data) ?? [];
+    out.push({
+      type: ptype.data,
+      fields: parseFieldValues(form, defs, `p_${i}_`),
+      weight: out.length,
+    });
+  }
+  return out;
+}
 
 export const POST: APIRoute = async ({ request, locals, cookies, redirect }) => {
   const env = locals.runtime.env;
@@ -41,6 +82,7 @@ export const POST: APIRoute = async ({ request, locals, cookies, redirect }) => 
     status: form.get('status') === 'on',
     fields: parseFieldValues(form, typeDetail.fields),
     termIds: form.getAll('termIds').map(String),
+    paragraphs: await parseParagraphs(form, client),
   };
 
   if (action === 'update') {

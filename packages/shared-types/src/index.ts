@@ -44,13 +44,26 @@ export const fieldSettingsSchema = z
   .default({});
 export type FieldSettings = z.infer<typeof fieldSettingsSchema>;
 
+/**
+ * Nature d'un bundle : 'node' = type de contenu à part entière (page, article…),
+ * 'paragraph' = composant structuré réutilisable (équivalent Paragraphs de Drupal).
+ * Les deux partagent la même Field API.
+ */
+export const typeKindEnum = z.enum(['node', 'paragraph']);
+export type TypeKind = z.infer<typeof typeKindEnum>;
+
 export const insertContentTypeSchema = z.object({
-  /** Identifiant machine, ex. 'article', 'recipe' */
+  /** Identifiant machine, ex. 'article', 'recipe', 'hero_banner' */
   id: machineNameSchema,
   label: z.string().min(1).max(255),
   description: z.string().max(1024).default(''),
+  kind: typeKindEnum.default('node'),
 });
 export type InsertContentType = z.infer<typeof insertContentTypeSchema>;
+
+export const listTypesQuerySchema = z.object({
+  kind: typeKindEnum.optional(),
+});
 
 export const insertFieldSchema = z.object({
   id: z.string().uuid(),
@@ -147,6 +160,16 @@ export type InsertTerm = z.infer<typeof insertTermSchema>;
 // Nœuds de contenu
 // ---------------------------------------------------------------------------
 
+/** Instance de paragraphe attachée à un nœud (équivalent Paragraphs) */
+export const insertParagraphSchema = z.object({
+  /** Nom machine du type de paragraphe (content type de kind 'paragraph') */
+  type: machineNameSchema,
+  /** Valeurs des champs — validées dynamiquement selon le type */
+  fields: z.record(z.string(), z.unknown()).default({}),
+  weight: z.number().int().default(0),
+});
+export type InsertParagraph = z.infer<typeof insertParagraphSchema>;
+
 export const insertNodeSchema = z.object({
   id: z.string().uuid(),
   title: z.string().min(3).max(255),
@@ -159,6 +182,8 @@ export const insertNodeSchema = z.object({
   fields: z.record(z.string(), z.unknown()).default({}),
   /** Termes de taxonomie associés */
   termIds: z.array(z.string().uuid()).default([]),
+  /** Paragraphes ordonnés composant le contenu */
+  paragraphs: z.array(insertParagraphSchema).default([]),
 });
 export type InsertNode = z.infer<typeof insertNodeSchema>;
 

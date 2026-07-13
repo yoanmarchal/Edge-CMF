@@ -10,7 +10,7 @@ if (session === null) return Astro.redirect('/admin');
 const client = contentClient(env);
 const [nodesRes, typesRes] = await Promise.all([
   client.api.nodes.$get({ query: { all: '1', limit: '100' } }),
-  client.api.types.$get(),
+  client.api.types.$get({ query: { kind: 'node' } }),
 ]);
 const nodes = nodesRes.ok ? (await nodesRes.json()).data : [];
 const types = typesRes.ok ? (await typesRes.json()).data : [];

@@ -36,5 +36,17 @@ const fieldEntries = Object.entries(node.fields);
         ))}
       </dl>
     )}
+
+    {/* Paragraphes : blocs structurés ordonnés (équivalent Drupal Paragraphs) */}
+    {node.paragraphs.map((p) => (
+      <section class="paragraph-item" data-paragraph-type={p.type}>
+        {Object.entries(p.fields).map(([name, value]) => (
+          <p>
+            <span class="muted">{name} — </span>
+            {String(value)}
+          </p>
+        ))}
+      </section>
+    ))}
   </article>
 </Base>

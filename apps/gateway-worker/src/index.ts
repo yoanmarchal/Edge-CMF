@@ -138,10 +138,17 @@ app
     return passthrough(res);
   })
 
-  .get('/v1/types', async (c) => {
-    const res = await contentClient(c.env).api.types.$get();
-    return passthrough(res);
-  })
+  .get(
+    '/v1/types',
+    zValidator('query', z.object({ kind: z.enum(['node', 'paragraph']).optional() })),
+    async (c) => {
+      const { kind } = c.req.valid('query');
+      const res = await contentClient(c.env).api.types.$get({
+        query: kind !== undefined ? { kind } : {},
+      });
+      return passthrough(res);
+    },
+  )
 
   .get('/v1/types/:id', zValidator('param', machineParamSchema), async (c) => {
     const { id } = c.req.valid('param');

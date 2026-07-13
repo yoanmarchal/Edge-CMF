@@ -19,6 +19,7 @@ Apps externes ─HTTPS─▶ gateway-worker (REST /v1, clés API)      ← expos
 |---|---|
 | Node system | `content_nodes` + rendu SSR Astro |
 | Content types + Field UI | Tables `content_types`/`fields`, validation Zod générée à la volée |
+| Paragraphs | Types de paragraphes (`kind='paragraph'`, même Field API) + `node_paragraphs` ordonnés ; éditeur par blocs dans l'admin |
 | Taxonomy | `vocabularies`/`terms`/`node_terms`, filtre `?term=` |
 | Users + rôles | auth-worker : JWT, PBKDF2, rôles admin/editor/viewer |
 | Cache tags | Cache API + version KV partagée (invalidation sur mutation) |
@@ -55,8 +56,10 @@ curl -X POST http://localhost:8702/register \
 
 Puis http://localhost:8788/admin → connexion → tout se gère depuis l'interface :
 créer des types de contenu et leurs champs (texte, nombre, booléen, date, liste,
-référence…), des vocabulaires et termes, des utilisateurs et leurs rôles, et du
-contenu via des formulaires générés dynamiquement depuis les définitions de champs.
+référence…), des types de paragraphes (composants réutilisables — deux fournis :
+« Bloc de texte » et « Citation »), des vocabulaires et termes, des utilisateurs
+et leurs rôles, et du contenu via des formulaires générés dynamiquement — y compris
+la composition par blocs de paragraphes (ajout/retrait, validation par type).
 
 ## API headless publique (gateway)
 

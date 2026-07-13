@@ -28,6 +28,7 @@ export const POST: APIRoute = async ({ request, locals, cookies, redirect }) => 
       id: form.get('id'),
       label: form.get('label'),
       description: form.get('description') ?? '',
+      kind: form.get('kind') ?? 'node',
     });
     if (!parsed.success) return redirect(`${BACK}?error=validation`, 303);
     const res = await client.api.types.$post({ json: parsed.data });

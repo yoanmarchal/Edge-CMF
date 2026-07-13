@@ -4,9 +4,11 @@ import type { FieldDef } from '@edge-cmf/shared-types';
 interface Props {
   def: FieldDef;
   value?: unknown;
+  /** Préfixe de nommage (ex. "p_0_" pour les champs d'un paragraphe) */
+  prefix?: string;
 }
-const { def, value } = Astro.props;
-const name = `field_${def.name}`;
+const { def, value, prefix = '' } = Astro.props;
+const name = `${prefix}field_${def.name}`;
 const str = value === undefined || value === null ? '' : String(value);
 ---
 

@@ -8,10 +8,11 @@ import type { FieldDef } from '@edge-cmf/shared-types';
 export function parseFieldValues(
   form: FormData,
   defs: readonly FieldDef[],
+  prefix = '',
 ): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const def of defs) {
-    const raw = form.get(`field_${def.name}`);
+    const raw = form.get(`${prefix}field_${def.name}`);
     if (def.fieldType === 'boolean') {
       out[def.name] = raw === 'on';
       continue;

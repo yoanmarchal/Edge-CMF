@@ -1,8 +1,9 @@
 ---
 import Admin from '../../../layouts/Admin.astro';
 import FieldInput from '../../../components/FieldInput.astro';
+import ParagraphsEditor from '../../../components/ParagraphsEditor.astro';
 import { getSessionUser, canWrite } from '../../../lib/session';
-import { contentClient } from '../../../lib/api';
+import { contentClient, loadParagraphTypes } from '../../../lib/api';
 
 const env = Astro.locals.runtime.env;
 const session = await getSessionUser(Astro.cookies, env);
@@ -16,6 +17,7 @@ const { data: typeDetail } = await typeRes.json();
 
 const vocabRes = await client.api.vocabularies.$get();
 const vocabularies = vocabRes.ok ? (await vocabRes.json()).data : [];
+const paragraphTypes = await loadParagraphTypes(client);
 ---
 
 <Admin title={`Nouveau ${typeDetail.type.label} — CMF Edge`} user={session.user}>
@@ -34,6 +36,8 @@ const vocabularies = vocabRes.ok ? (await vocabRes.json()).data : [];
 
     {typeDetail.fields.length > 0 && <h2>Champs personnalisés</h2>}
     {typeDetail.fields.map((def) => <FieldInput def={def} />)}
+
+    {paragraphTypes.length > 0 && <ParagraphsEditor paragraphTypes={paragraphTypes} />}
 
     {vocabularies.some((v) => v.terms.length > 0) && <h2>Taxonomie</h2>}
     {vocabularies.map((v) =>

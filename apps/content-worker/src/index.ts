@@ -11,6 +11,7 @@ import {
   idParamSchema,
   machineParamSchema,
   insertContentTypeSchema,
+  listTypesQuerySchema,
   insertFieldSchema,
   insertVocabularySchema,
   insertTermSchema,
@@ -18,6 +19,7 @@ import {
   fieldSettingsSchema,
   buildFieldValuesSchema,
   type FieldDef,
+  type InsertParagraph,
 } from '@edge-cmf/shared-types';
 import {
   contentNodes,
@@ -26,6 +28,7 @@ import {
   vocabularies,
   terms,
   nodeTerms,
+  nodeParagraphs,
   type ContentNode,
   type FieldRow,
   type TermRow,
@@ -82,13 +85,25 @@ async function loadNodeTerms(db: DB, nodeId: string): Promise<TermRow[]> {
     .where(eq(nodeTerms.nodeId, nodeId));
 }
 
-function hydrateNode(node: ContentNode, nodeTermRows: TermRow[]) {
+interface HydratedParagraph {
+  readonly id: string;
+  readonly type: string;
+  readonly fields: Record<string, unknown>;
+  readonly weight: number;
+}
+
+function hydrateNode(
+  node: ContentNode,
+  nodeTermRows: TermRow[],
+  paragraphs: HydratedParagraph[] = [],
+) {
   const rawFields: unknown = JSON.parse(node.fieldsJson);
   const { fieldsJson: _drop, ...rest } = node;
   return {
     ...rest,
     fields: (rawFields ?? {}) as Record<string, unknown>,
     terms: nodeTermRows,
+    paragraphs,
   };
 }
 
@@ -96,6 +111,78 @@ async function replaceNodeTerms(db: DB, nodeId: string, termIds: string[]): Prom
   await db.delete(nodeTerms).where(eq(nodeTerms.nodeId, nodeId));
   if (termIds.length > 0) {
     await db.insert(nodeTerms).values(termIds.map((termId) => ({ nodeId, termId })));
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Paragraphs — composants structurés réutilisables (équivalent Drupal Paragraphs)
+// ---------------------------------------------------------------------------
+
+async function loadNodeParagraphs(db: DB, nodeId: string): Promise<HydratedParagraph[]> {
+  const rows = await db
+    .select()
+    .from(nodeParagraphs)
+    .where(eq(nodeParagraphs.nodeId, nodeId))
+    .orderBy(asc(nodeParagraphs.weight));
+  return rows.map((r) => {
+    const raw: unknown = JSON.parse(r.fieldsJson);
+    return {
+      id: r.id,
+      type: r.paragraphType,
+      fields: (raw ?? {}) as Record<string, unknown>,
+      weight: r.weight,
+    };
+  });
+}
+
+/**
+ * Valide chaque paragraphe contre la Field API de son type (kind 'paragraph').
+ * Retourne les paragraphes normalisés ou un message d'erreur.
+ */
+async function validateParagraphs(
+  db: DB,
+  paragraphs: InsertParagraph[],
+): Promise<{ ok: true; data: InsertParagraph[] } | { ok: false; error: string }> {
+  const defsCache = new Map<string, FieldDef[]>();
+  const out: InsertParagraph[] = [];
+  for (const [i, p] of paragraphs.entries()) {
+    if (!defsCache.has(p.type)) {
+      const [type] = await db
+        .select({ id: contentTypes.id, kind: contentTypes.kind })
+        .from(contentTypes)
+        .where(eq(contentTypes.id, p.type))
+        .limit(1);
+      if (type === undefined || type.kind !== 'paragraph') {
+        return { ok: false, error: `Type de paragraphe inconnu : ${p.type}` };
+      }
+      defsCache.set(p.type, await loadFieldDefs(db, p.type));
+    }
+    const defs = defsCache.get(p.type) ?? [];
+    const parsed = buildFieldValuesSchema(defs).safeParse(p.fields);
+    if (!parsed.success) {
+      return { ok: false, error: `Paragraphe ${i + 1} (${p.type}) invalide : ${parsed.error.message}` };
+    }
+    out.push({ type: p.type, fields: parsed.data, weight: i });
+  }
+  return { ok: true, data: out };
+}
+
+async function replaceNodeParagraphs(
+  db: DB,
+  nodeId: string,
+  paragraphs: InsertParagraph[],
+): Promise<void> {
+  await db.delete(nodeParagraphs).where(eq(nodeParagraphs.nodeId, nodeId));
+  if (paragraphs.length > 0) {
+    await db.insert(nodeParagraphs).values(
+      paragraphs.map((p, i) => ({
+        id: crypto.randomUUID(),
+        nodeId,
+        paragraphType: p.type,
+        fieldsJson: JSON.stringify(p.fields),
+        weight: p.weight ?? i,
+      })),
+    );
   }
 }
 
@@ -136,9 +223,14 @@ app.use('/api/*', async (c, next) => {
 // ---------------------------------------------------------------------------
 const routes = app
   // ------------------------- Content Types (Field UI) ----------------------
-  .get('/api/types', async (c) => {
+  .get('/api/types', zValidator('query', listTypesQuerySchema), async (c) => {
+    const { kind } = c.req.valid('query');
     const db = drizzle(c.env.DB);
-    const data = await db.select().from(contentTypes).orderBy(asc(contentTypes.id));
+    const data = await db
+      .select()
+      .from(contentTypes)
+      .where(kind !== undefined ? eq(contentTypes.kind, kind) : undefined)
+      .orderBy(asc(contentTypes.id));
     return c.json({ data });
   })
 
@@ -345,8 +437,11 @@ const routes = app
     if (node === undefined) {
       return c.json({ success: false as const, error: 'Nœud introuvable' }, 404);
     }
-    const nodeTermRows = await loadNodeTerms(db, node.id);
-    return c.json({ success: true as const, data: hydrateNode(node, nodeTermRows) });
+    const [nodeTermRows, paragraphs] = await Promise.all([
+      loadNodeTerms(db, node.id),
+      loadNodeParagraphs(db, node.id),
+    ]);
+    return c.json({ success: true as const, data: hydrateNode(node, nodeTermRows, paragraphs) });
   })
 
   // Détail par id — tout statut (admin)
@@ -357,8 +452,11 @@ const routes = app
     if (node === undefined) {
       return c.json({ success: false as const, error: 'Nœud introuvable' }, 404);
     }
-    const nodeTermRows = await loadNodeTerms(db, node.id);
-    return c.json({ success: true as const, data: hydrateNode(node, nodeTermRows) });
+    const [nodeTermRows, paragraphs] = await Promise.all([
+      loadNodeTerms(db, node.id),
+      loadNodeParagraphs(db, node.id),
+    ]);
+    return c.json({ success: true as const, data: hydrateNode(node, nodeTermRows, paragraphs) });
   })
 
   .post('/api/nodes', zValidator('json', insertNodeSchema), async (c) => {
@@ -366,11 +464,11 @@ const routes = app
     const db = drizzle(c.env.DB);
 
     const [type] = await db
-      .select({ id: contentTypes.id })
+      .select({ id: contentTypes.id, kind: contentTypes.kind })
       .from(contentTypes)
       .where(eq(contentTypes.id, input.contentType))
       .limit(1);
-    if (type === undefined) {
+    if (type === undefined || type.kind !== 'node') {
       return c.json({ success: false as const, error: 'Content type inconnu' }, 400);
     }
 
@@ -382,6 +480,12 @@ const routes = app
         { success: false as const, error: `Champs invalides : ${parsedFields.error.message}` },
         400,
       );
+    }
+
+    // Validation des paragraphes contre leur propre Field API
+    const parsedParagraphs = await validateParagraphs(db, input.paragraphs);
+    if (!parsedParagraphs.ok) {
+      return c.json({ success: false as const, error: parsedParagraphs.error }, 400);
     }
 
     try {
@@ -400,6 +504,7 @@ const routes = app
         })
         .run();
       await replaceNodeTerms(db, input.id, input.termIds);
+      await replaceNodeParagraphs(db, input.id, parsedParagraphs.data);
       return c.json({ success: true as const, message: 'Node créé avec succès', id: input.id }, 201);
     } catch (error) {
       return c.json({ success: false as const, error: (error as Error).message }, 500);
@@ -453,6 +558,13 @@ const routes = app
 
       if (patch.termIds !== undefined) {
         await replaceNodeTerms(db, id, patch.termIds);
+      }
+      if (patch.paragraphs !== undefined) {
+        const parsedParagraphs = await validateParagraphs(db, patch.paragraphs);
+        if (!parsedParagraphs.ok) {
+          return c.json({ success: false as const, error: parsedParagraphs.error }, 400);
+        }
+        await replaceNodeParagraphs(db, id, parsedParagraphs.data);
       }
       return c.json({ success: true as const, id });
     },

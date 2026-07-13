@@ -5,9 +5,10 @@ import { sqliteTable, text, integer, primaryKey } from 'drizzle-orm/sqlite-core'
 // ---------------------------------------------------------------------------
 
 export const contentTypes = sqliteTable('content_types', {
-  id: text('id').primaryKey(), // nom machine : 'page', 'article', 'recipe'…
+  id: text('id').primaryKey(), // nom machine : 'page', 'article', 'hero_banner'…
   label: text('label').notNull(),
   description: text('description').notNull().default(''),
+  kind: text('kind').notNull().default('node'), // 'node' | 'paragraph'
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
 });
 
@@ -72,7 +73,24 @@ export const nodeTerms = sqliteTable(
   (t) => [primaryKey({ columns: [t.nodeId, t.termId] })],
 );
 
+/**
+ * Instances de paragraphes attachées aux nœuds (équivalent Paragraphs de Drupal).
+ * Ordonnées par weight ; les valeurs de champs suivent la Field API du type.
+ */
+export const nodeParagraphs = sqliteTable('node_paragraphs', {
+  id: text('id').primaryKey(),
+  nodeId: text('node_id')
+    .notNull()
+    .references(() => contentNodes.id, { onDelete: 'cascade' }),
+  paragraphType: text('paragraph_type')
+    .notNull()
+    .references(() => contentTypes.id),
+  fieldsJson: text('fields_json').notNull().default('{}'),
+  weight: integer('weight').notNull().default(0),
+});
+
 export type ContentNode = typeof contentNodes.$inferSelect;
+export type NodeParagraphRow = typeof nodeParagraphs.$inferSelect;
 export type NewContentNode = typeof contentNodes.$inferInsert;
 export type ContentTypeRow = typeof contentTypes.$inferSelect;
 export type FieldRow = typeof fields.$inferSelect;

@@ -10,17 +10,32 @@ if (session === null) return Astro.redirect('/admin');
 if (session.user.role !== 'admin') return Astro.redirect('/admin?error=droits');
 
 const client = contentClient(env);
-const typesRes = await client.api.types.$get();
+const typesRes = await client.api.types.$get({ query: {} });
 const types = typesRes.ok ? (await typesRes.json()).data : [];
 
-const details: { id: string; label: string; description: string; fields: FieldDef[] }[] = [];
+interface TypeDetail {
+  id: string;
+  label: string;
+  description: string;
+  kind: string;
+  fields: FieldDef[];
+}
+const details: TypeDetail[] = [];
 for (const t of types) {
   const dRes = await client.api.types[':id'].$get({ param: { id: t.id } });
   if (dRes.ok) {
     const { data } = await dRes.json();
-    details.push({ id: t.id, label: t.label, description: t.description, fields: data.fields });
+    details.push({
+      id: t.id,
+      label: t.label,
+      description: t.description,
+      kind: t.kind,
+      fields: data.fields,
+    });
   }
 }
+const nodeTypes = details.filter((t) => t.kind === 'node');
+const paragraphTypes = details.filter((t) => t.kind === 'paragraph');
 ---
 
 <Admin title="Types & champs — CMF Edge" user={session.user}>
@@ -35,13 +50,19 @@ for (const t of types) {
     <input id="tlabel" name="label" maxlength="255" required />
     <label for="tdesc">Description</label>
     <input id="tdesc" name="description" maxlength="1024" />
+    <label for="tkind">Nature</label>
+    <select id="tkind" name="kind">
+      <option value="node">Type de contenu (nœud)</option>
+      <option value="paragraph">Type de paragraphe (composant)</option>
+    </select>
     <button type="submit">Créer le type</button>
   </form>
 
-  {details.map((t) => (
+  {[...nodeTypes, ...paragraphTypes].map((t) => (
     <section>
       <h2>
         {t.label} <code class="muted">{t.id}</code>
+        <span class="badge">{t.kind === 'paragraph' ? 'Paragraphe' : 'Nœud'}</span>
         <form method="post" action="/api/admin/types" class="inline">
           <input type="hidden" name="_action" value="delete-type" />
           <input type="hidden" name="id" value={t.id} />
