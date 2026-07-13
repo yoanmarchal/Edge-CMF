@@ -9,15 +9,15 @@ if (session === null) return Astro.redirect('/admin');
 if (session.user.role !== 'admin') return Astro.redirect('/admin?error=droits');
 
 const client = contentClient(env);
-const typesRes = await client.api.types.$get({ query: { kind: 'node' } });
+const typesRes = await client.api.types.$get({ query: { kind: 'paragraph' } });
 const types = typesRes.ok ? (await typesRes.json()).data : [];
 ---
 
-<Admin title="Types de contenu — CMF Edge" user={session.user}>
-  <h1>Types de contenu</h1>
+<Admin title="Types de paragraphes — CMF Edge" user={session.user}>
+  <h1>Types de paragraphes</h1>
   <p class="muted">
-    Les bundles de nœuds (pages, articles…). Les composants réutilisables sont dans
-    <a href="/admin/paragraphs">Paragraphes</a>.
+    Composants structurés réutilisables dans tous les contenus (équivalent Paragraphs
+    de Drupal). Chaque type défini ici apparaît comme bloc ajoutable dans l'éditeur.
   </p>
 
   <table>
@@ -35,17 +35,17 @@ const types = typesRes.ok ? (await typesRes.json()).data : [];
   </table>
 
   <details>
-    <summary>Nouveau type de contenu</summary>
+    <summary>Nouveau type de paragraphe</summary>
     <form method="post" action="/api/admin/types" class="stack">
       <input type="hidden" name="_action" value="create-type" />
-      <input type="hidden" name="kind" value="node" />
-      <input type="hidden" name="back" value="/admin/types" />
-      <label for="tid">Nom machine (a-z, 0-9, _)</label>
-      <input id="tid" name="id" pattern="[a-z][a-z0-9_]*" maxlength="64" required />
-      <label for="tlabel">Libellé</label>
-      <input id="tlabel" name="label" maxlength="255" required />
-      <label for="tdesc">Description</label>
-      <input id="tdesc" name="description" maxlength="1024" />
+      <input type="hidden" name="kind" value="paragraph" />
+      <input type="hidden" name="back" value="/admin/paragraphs" />
+      <label for="pid">Nom machine (a-z, 0-9, _)</label>
+      <input id="pid" name="id" pattern="[a-z][a-z0-9_]*" maxlength="64" required />
+      <label for="plabel">Libellé</label>
+      <input id="plabel" name="label" maxlength="255" required />
+      <label for="pdesc">Description</label>
+      <input id="pdesc" name="description" maxlength="1024" />
       <button type="submit">Créer</button>
     </form>
   </details>

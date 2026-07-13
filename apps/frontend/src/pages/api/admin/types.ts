@@ -10,7 +10,12 @@ import { contentClient } from '../../../lib/api';
 import { getSessionUser } from '../../../lib/session';
 
 const uuid = z.string().uuid();
-const BACK = '/admin/types';
+
+/** Cible de retour sûre (fournie par un input hidden "back" des formulaires). */
+function backOf(form: FormData): string {
+  const raw = form.get('back');
+  return typeof raw === 'string' && raw.startsWith('/admin') ? raw : '/admin/types';
+}
 
 export const POST: APIRoute = async ({ request, locals, cookies, redirect }) => {
   const env = locals.runtime.env;
@@ -22,6 +27,7 @@ export const POST: APIRoute = async ({ request, locals, cookies, redirect }) => 
   const form = await request.formData();
   const action = form.get('_action');
   const client = contentClient(env);
+  const back = backOf(form);
 
   if (action === 'create-type') {
     const parsed = insertContentTypeSchema.safeParse({
@@ -30,21 +36,22 @@ export const POST: APIRoute = async ({ request, locals, cookies, redirect }) => 
       description: form.get('description') ?? '',
       kind: form.get('kind') ?? 'node',
     });
-    if (!parsed.success) return redirect(`${BACK}?error=validation`, 303);
+    if (!parsed.success) return redirect(`${back}?error=validation`, 303);
     const res = await client.api.types.$post({ json: parsed.data });
-    return redirect(res.ok ? `${BACK}?ok=1` : `${BACK}?error=conflit`, 303);
+    // Succès : atterrir directement sur la gestion des champs du nouveau type
+    return redirect(res.ok ? `/admin/types/${parsed.data.id}?ok=1` : `${back}?error=conflit`, 303);
   }
 
   if (action === 'delete-type') {
     const id = machineNameSchema.safeParse(form.get('id'));
-    if (!id.success) return redirect(`${BACK}?error=validation`, 303);
+    if (!id.success) return redirect(`${back}?error=validation`, 303);
     const res = await client.api.types[':id'].$delete({ param: { id: id.data } });
     if (!res.ok) {
       const body = await res.json();
       const msg = 'error' in body ? body.error : 'suppression';
-      return redirect(`${BACK}?error=${encodeURIComponent(msg)}`, 303);
+      return redirect(`${back}?error=${encodeURIComponent(msg)}`, 303);
     }
-    return redirect(`${BACK}?ok=1`, 303);
+    return redirect(`${back}?ok=1`, 303);
   }
 
   if (action === 'create-field') {
@@ -54,7 +61,7 @@ export const POST: APIRoute = async ({ request, locals, cookies, redirect }) => 
         ? optionsRaw.split(',').map((o) => o.trim()).filter((o) => o.length > 0)
         : undefined;
     const fieldType = fieldTypeEnum.safeParse(form.get('fieldType'));
-    if (!fieldType.success) return redirect(`${BACK}?error=validation`, 303);
+    if (!fieldType.success) return redirect(`${back}?error=validation`, 303);
     const parsed = insertFieldSchema.safeParse({
       id: crypto.randomUUID(),
       contentTypeId: form.get('contentTypeId'),
@@ -65,17 +72,17 @@ export const POST: APIRoute = async ({ request, locals, cookies, redirect }) => 
       settings: fieldType.data === 'select' && options !== undefined ? { options } : {},
       weight: Number(form.get('weight') ?? 0),
     });
-    if (!parsed.success) return redirect(`${BACK}?error=validation`, 303);
+    if (!parsed.success) return redirect(`${back}?error=validation`, 303);
     const res = await client.api.fields.$post({ json: parsed.data });
-    return redirect(res.ok ? `${BACK}?ok=1` : `${BACK}?error=conflit`, 303);
+    return redirect(res.ok ? `${back}?ok=1` : `${back}?error=conflit`, 303);
   }
 
   if (action === 'delete-field') {
     const id = uuid.safeParse(form.get('id'));
-    if (!id.success) return redirect(`${BACK}?error=validation`, 303);
+    if (!id.success) return redirect(`${back}?error=validation`, 303);
     const res = await client.api.fields[':id'].$delete({ param: { id: id.data } });
-    return redirect(res.ok ? `${BACK}?ok=1` : `${BACK}?error=suppression`, 303);
+    return redirect(res.ok ? `${back}?ok=1` : `${back}?error=suppression`, 303);
   }
 
-  return redirect(`${BACK}?error=action-inconnue`, 303);
+  return redirect(`${back}?error=action-inconnue`, 303);
 };

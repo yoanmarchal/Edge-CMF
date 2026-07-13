@@ -21,7 +21,8 @@ const ok = Astro.url.searchParams.get('ok');
   <nav class="sub">
     <a href="/admin">Tableau de bord</a>
     <a href="/admin/content">Contenu</a>
-    <a href="/admin/types">Types & champs</a>
+    <a href="/admin/types">Types de contenu</a>
+    <a href="/admin/paragraphs">Paragraphes</a>
     <a href="/admin/taxonomy">Taxonomie</a>
     {user.role === 'admin' && <a href="/admin/users">Utilisateurs</a>}
   </nav>

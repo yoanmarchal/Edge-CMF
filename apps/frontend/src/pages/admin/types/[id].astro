@@ -1,0 +1,97 @@
+---
+import Admin from '../../../layouts/Admin.astro';
+import { getSessionUser } from '../../../lib/session';
+import { contentClient } from '../../../lib/api';
+
+const env = Astro.locals.runtime.env;
+const session = await getSessionUser(Astro.cookies, env);
+if (session === null) return Astro.redirect('/admin');
+if (session.user.role !== 'admin') return Astro.redirect('/admin?error=droits');
+
+const { id } = Astro.params;
+if (id === undefined || !/^[a-z][a-z0-9_]*$/.test(id)) return Astro.redirect('/admin/types');
+
+const client = contentClient(env);
+const detailRes = await client.api.types[':id'].$get({ param: { id } });
+if (!detailRes.ok) return Astro.redirect('/admin/types?error=introuvable');
+const { data: detail } = await detailRes.json();
+
+const isParagraph = detail.type.kind === 'paragraph';
+const backUrl = isParagraph ? '/admin/paragraphs' : '/admin/types';
+const here = `/admin/types/${id}`;
+---
+
+<Admin title={`${detail.type.label} — CMF Edge`} user={session.user}>
+  <p><a href={backUrl}>← {isParagraph ? 'Types de paragraphes' : 'Types de contenu'}</a></p>
+  <h1>
+    {detail.type.label}
+    <code class="muted">{detail.type.id}</code>
+    <span class="badge">{isParagraph ? 'Paragraphe' : 'Nœud'}</span>
+  </h1>
+  {detail.type.description !== '' && <p class="muted">{detail.type.description}</p>}
+
+  <h2>Champs</h2>
+  {detail.fields.length === 0 && <p class="muted">Aucun champ pour le moment.</p>}
+  {detail.fields.length > 0 && (
+    <table>
+      <thead><tr><th>Champ</th><th>Libellé</th><th>Type</th><th>Requis</th><th>Options</th><th>Poids</th><th></th></tr></thead>
+      <tbody>
+        {detail.fields.map((f) => (
+          <tr>
+            <td><code>{f.name}</code></td>
+            <td>{f.label}</td>
+            <td>{f.fieldType}</td>
+            <td>{f.required ? 'oui' : 'non'}</td>
+            <td class="muted">{f.settings.options?.join(', ') ?? ''}</td>
+            <td>{f.weight}</td>
+            <td>
+              <form method="post" action="/api/admin/types" class="inline">
+                <input type="hidden" name="_action" value="delete-field" />
+                <input type="hidden" name="id" value={f.id} />
+                <input type="hidden" name="back" value={here} />
+                <button type="submit" class="danger">×</button>
+              </form>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  )}
+
+  <details open={detail.fields.length === 0}>
+    <summary>Ajouter un champ</summary>
+    <form method="post" action="/api/admin/types" class="stack">
+      <input type="hidden" name="_action" value="create-field" />
+      <input type="hidden" name="contentTypeId" value={detail.type.id} />
+      <input type="hidden" name="back" value={here} />
+      <label>Nom machine <input name="name" pattern="[a-z][a-z0-9_]*" maxlength="64" required /></label>
+      <label>Libellé <input name="label" maxlength="255" required /></label>
+      <label>Type de champ
+        <select name="fieldType">
+          <option value="text">Texte court</option>
+          <option value="textarea">Texte long</option>
+          <option value="richtext">Texte riche</option>
+          <option value="number">Nombre</option>
+          <option value="boolean">Booléen</option>
+          <option value="date">Date</option>
+          <option value="select">Liste (options)</option>
+          <option value="reference">Référence (UUID)</option>
+        </select>
+      </label>
+      <label>Options (pour « Liste », séparées par des virgules)
+        <input name="options" placeholder="rouge, vert, bleu" />
+      </label>
+      <label><input type="checkbox" name="required" /> Requis</label>
+      <label>Poids <input name="weight" type="number" value="0" /></label>
+      <button type="submit">Ajouter</button>
+    </form>
+  </details>
+
+  <hr />
+  <form method="post" action="/api/admin/types">
+    <input type="hidden" name="_action" value="delete-type" />
+    <input type="hidden" name="id" value={detail.type.id} />
+    <input type="hidden" name="back" value={backUrl} />
+    <button type="submit" class="danger">Supprimer ce type</button>
+  </form>
+</Admin>
