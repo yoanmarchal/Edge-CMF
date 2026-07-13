@@ -1,0 +1,104 @@
+---
+import Admin from '../../../layouts/Admin.astro';
+import { getSessionUser } from '../../../lib/session';
+import { contentClient } from '../../../lib/api';
+import type { FieldDef } from '@edge-cmf/shared-types';
+
+const env = Astro.locals.runtime.env;
+const session = await getSessionUser(Astro.cookies, env);
+if (session === null) return Astro.redirect('/admin');
+if (session.user.role !== 'admin') return Astro.redirect('/admin?error=droits');
+
+const client = contentClient(env);
+const typesRes = await client.api.types.$get();
+const types = typesRes.ok ? (await typesRes.json()).data : [];
+
+const details: { id: string; label: string; description: string; fields: FieldDef[] }[] = [];
+for (const t of types) {
+  const dRes = await client.api.types[':id'].$get({ param: { id: t.id } });
+  if (dRes.ok) {
+    const { data } = await dRes.json();
+    details.push({ id: t.id, label: t.label, description: t.description, fields: data.fields });
+  }
+}
+---
+
+<Admin title="Types & champs — CMF Edge" user={session.user}>
+  <h1>Types de contenu</h1>
+
+  <form method="post" action="/api/admin/types" class="stack">
+    <input type="hidden" name="_action" value="create-type" />
+    <h2>Nouveau type</h2>
+    <label for="tid">Nom machine (a-z, 0-9, _)</label>
+    <input id="tid" name="id" pattern="[a-z][a-z0-9_]*" maxlength="64" required />
+    <label for="tlabel">Libellé</label>
+    <input id="tlabel" name="label" maxlength="255" required />
+    <label for="tdesc">Description</label>
+    <input id="tdesc" name="description" maxlength="1024" />
+    <button type="submit">Créer le type</button>
+  </form>
+
+  {details.map((t) => (
+    <section>
+      <h2>
+        {t.label} <code class="muted">{t.id}</code>
+        <form method="post" action="/api/admin/types" class="inline">
+          <input type="hidden" name="_action" value="delete-type" />
+          <input type="hidden" name="id" value={t.id} />
+          <button type="submit" class="danger">Supprimer</button>
+        </form>
+      </h2>
+      {t.description !== '' && <p class="muted">{t.description}</p>}
+
+      <table>
+        <thead><tr><th>Champ</th><th>Libellé</th><th>Type</th><th>Requis</th><th>Options</th><th></th></tr></thead>
+        <tbody>
+          {t.fields.map((f) => (
+            <tr>
+              <td><code>{f.name}</code></td>
+              <td>{f.label}</td>
+              <td>{f.fieldType}</td>
+              <td>{f.required ? 'oui' : 'non'}</td>
+              <td class="muted">{f.settings.options?.join(', ') ?? ''}</td>
+              <td>
+                <form method="post" action="/api/admin/types" class="inline">
+                  <input type="hidden" name="_action" value="delete-field" />
+                  <input type="hidden" name="id" value={f.id} />
+                  <button type="submit" class="danger">×</button>
+                </form>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      <details>
+        <summary>Ajouter un champ à « {t.label} »</summary>
+        <form method="post" action="/api/admin/types" class="stack">
+          <input type="hidden" name="_action" value="create-field" />
+          <input type="hidden" name="contentTypeId" value={t.id} />
+          <label>Nom machine <input name="name" pattern="[a-z][a-z0-9_]*" maxlength="64" required /></label>
+          <label>Libellé <input name="label" maxlength="255" required /></label>
+          <label>Type de champ
+            <select name="fieldType">
+              <option value="text">Texte court</option>
+              <option value="textarea">Texte long</option>
+              <option value="richtext">Texte riche</option>
+              <option value="number">Nombre</option>
+              <option value="boolean">Booléen</option>
+              <option value="date">Date</option>
+              <option value="select">Liste (options)</option>
+              <option value="reference">Référence (UUID)</option>
+            </select>
+          </label>
+          <label>Options (pour « Liste », séparées par des virgules)
+            <input name="options" placeholder="rouge, vert, bleu" />
+          </label>
+          <label><input type="checkbox" name="required" /> Requis</label>
+          <label>Poids <input name="weight" type="number" value="0" /></label>
+          <button type="submit">Ajouter le champ</button>
+        </form>
+      </details>
+    </section>
+  ))}
+</Admin>

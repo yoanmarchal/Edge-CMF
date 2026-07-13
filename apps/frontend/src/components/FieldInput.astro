@@ -1,0 +1,45 @@
+---
+import type { FieldDef } from '@edge-cmf/shared-types';
+
+interface Props {
+  def: FieldDef;
+  value?: unknown;
+}
+const { def, value } = Astro.props;
+const name = `field_${def.name}`;
+const str = value === undefined || value === null ? '' : String(value);
+---
+
+<label for={name}>
+  {def.label}
+  {def.required && <span class="muted"> (requis)</span>}
+</label>
+{def.fieldType === 'textarea' || def.fieldType === 'richtext' ? (
+  <textarea id={name} name={name} rows="5" required={def.required}>{str}</textarea>
+) : def.fieldType === 'boolean' ? (
+  <input id={name} name={name} type="checkbox" checked={value === true} />
+) : def.fieldType === 'number' ? (
+  <input
+    id={name}
+    name={name}
+    type="number"
+    step="any"
+    value={str}
+    required={def.required}
+    min={def.settings.min}
+    max={def.settings.max}
+  />
+) : def.fieldType === 'date' ? (
+  <input id={name} name={name} type="date" value={str} required={def.required} />
+) : def.fieldType === 'select' ? (
+  <select id={name} name={name} required={def.required}>
+    {!def.required && <option value="">—</option>}
+    {(def.settings.options ?? []).map((opt) => (
+      <option value={opt} selected={opt === str}>{opt}</option>
+    ))}
+  </select>
+) : def.fieldType === 'reference' ? (
+  <input id={name} name={name} value={str} placeholder="UUID du nœud référencé" required={def.required} />
+) : (
+  <input id={name} name={name} value={str} maxlength="255" required={def.required} />
+)}

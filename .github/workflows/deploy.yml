@@ -53,6 +53,9 @@ jobs:
       - name: Deploy auth-worker
         run: npx wrangler deploy
         working-directory: apps/auth-worker
+      - name: Deploy gateway-worker
+        run: npx wrangler deploy
+        working-directory: apps/gateway-worker
 
       # 3. Build et déploiement du front Astro sur Cloudflare Pages
       - name: Build Astro

@@ -1,0 +1,57 @@
+---
+import Admin from '../../../layouts/Admin.astro';
+import { getSessionUser, canWrite } from '../../../lib/session';
+import { contentClient } from '../../../lib/api';
+
+const env = Astro.locals.runtime.env;
+const session = await getSessionUser(Astro.cookies, env);
+if (session === null) return Astro.redirect('/admin');
+
+const client = contentClient(env);
+const [nodesRes, typesRes] = await Promise.all([
+  client.api.nodes.$get({ query: { all: '1', limit: '100' } }),
+  client.api.types.$get(),
+]);
+const nodes = nodesRes.ok ? (await nodesRes.json()).data : [];
+const types = typesRes.ok ? (await typesRes.json()).data : [];
+const writable = canWrite(session.user);
+---
+
+<Admin title="Contenu — CMF Edge" user={session.user}>
+  <h1>Contenu</h1>
+
+  {writable && (
+    <p>
+      Créer :
+      {types.map((t) => (
+        <a class="badge" href={`/admin/content/new?type=${t.id}`}>+ {t.label}</a>
+      ))}
+    </p>
+  )}
+
+  <table>
+    <thead>
+      <tr><th>Titre</th><th>Type</th><th>Statut</th><th>Slug</th><th></th></tr>
+    </thead>
+    <tbody>
+      {nodes.map((n) => (
+        <tr>
+          <td><a href={`/admin/content/edit/${n.id}`}>{n.title}</a></td>
+          <td>{n.contentType}</td>
+          <td>{n.status ? 'Publié' : 'Brouillon'}</td>
+          <td class="muted">/{n.slug}</td>
+          <td>
+            {writable && (
+              <form method="post" action="/api/admin/nodes" class="inline">
+                <input type="hidden" name="_action" value="delete" />
+                <input type="hidden" name="id" value={n.id} />
+                <button type="submit" class="danger">Supprimer</button>
+              </form>
+            )}
+          </td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+  {nodes.length === 0 && <p>Aucun contenu.</p>}
+</Admin>

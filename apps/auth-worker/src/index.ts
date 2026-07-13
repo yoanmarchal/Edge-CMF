@@ -2,11 +2,13 @@ import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { sign, verify } from 'hono/jwt';
 import { drizzle } from 'drizzle-orm/d1';
-import { eq } from 'drizzle-orm';
+import { asc, eq } from 'drizzle-orm';
 import {
   loginSchema,
   registerSchema,
   jwtPayloadSchema,
+  idParamSchema,
+  updateRoleSchema,
   type UserContext,
 } from '@edge-cmf/shared-types';
 import { users } from './schema';
@@ -119,6 +121,66 @@ const routes = app
       return c.json({ success: false as const, error: 'Token invalide ou manquant' }, 401);
     }
     return c.json({ success: true as const, user });
+  })
+
+  /** Liste des utilisateurs (admin uniquement). */
+  .get('/users', async (c) => {
+    const caller = await extractUser(c.req.header('Authorization'), c.env.JWT_SECRET);
+    if (caller?.role !== 'admin') {
+      return c.json({ success: false as const, error: 'Non autorisé' }, 403);
+    }
+    const db = drizzle(c.env.DB);
+    const data = await db
+      .select({ id: users.id, email: users.email, role: users.role, createdAt: users.createdAt })
+      .from(users)
+      .orderBy(asc(users.email));
+    return c.json({ success: true as const, data });
+  })
+
+  /** Changement de rôle (admin uniquement). */
+  .put(
+    '/users/:id/role',
+    zValidator('param', idParamSchema),
+    zValidator('json', updateRoleSchema),
+    async (c) => {
+      const caller = await extractUser(c.req.header('Authorization'), c.env.JWT_SECRET);
+      if (caller?.role !== 'admin') {
+        return c.json({ success: false as const, error: 'Non autorisé' }, 403);
+      }
+      const { id } = c.req.valid('param');
+      const { role } = c.req.valid('json');
+      if (id === caller.sub) {
+        return c.json({ success: false as const, error: 'Impossible de modifier son propre rôle' }, 400);
+      }
+      const db = drizzle(c.env.DB);
+      const updated = await db
+        .update(users)
+        .set({ role })
+        .where(eq(users.id, id))
+        .returning({ id: users.id });
+      if (updated.length === 0) {
+        return c.json({ success: false as const, error: 'Utilisateur introuvable' }, 404);
+      }
+      return c.json({ success: true as const, id });
+    },
+  )
+
+  /** Suppression d'utilisateur (admin uniquement, pas soi-même). */
+  .delete('/users/:id', zValidator('param', idParamSchema), async (c) => {
+    const caller = await extractUser(c.req.header('Authorization'), c.env.JWT_SECRET);
+    if (caller?.role !== 'admin') {
+      return c.json({ success: false as const, error: 'Non autorisé' }, 403);
+    }
+    const { id } = c.req.valid('param');
+    if (id === caller.sub) {
+      return c.json({ success: false as const, error: 'Impossible de se supprimer soi-même' }, 400);
+    }
+    const db = drizzle(c.env.DB);
+    const deleted = await db.delete(users).where(eq(users.id, id)).returning({ id: users.id });
+    if (deleted.length === 0) {
+      return c.json({ success: false as const, error: 'Utilisateur introuvable' }, 404);
+    }
+    return c.json({ success: true as const, id });
   });
 
 app.onError((err, c) => c.json({ success: false as const, error: err.message }, 500));

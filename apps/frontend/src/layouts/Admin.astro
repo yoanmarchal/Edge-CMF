@@ -1,0 +1,31 @@
+---
+import Base from './Base.astro';
+import type { UserContext } from '@edge-cmf/shared-types';
+
+interface Props {
+  title: string;
+  user: UserContext;
+}
+const { title, user } = Astro.props;
+const error = Astro.url.searchParams.get('error');
+const ok = Astro.url.searchParams.get('ok');
+---
+
+<Base title={title}>
+  <p class="muted">
+    Connecté : <strong>{user.email}</strong> ({user.role})
+    <form method="post" action="/api/logout" class="inline">
+      <button type="submit">Déconnexion</button>
+    </form>
+  </p>
+  <nav class="sub">
+    <a href="/admin">Tableau de bord</a>
+    <a href="/admin/content">Contenu</a>
+    <a href="/admin/types">Types & champs</a>
+    <a href="/admin/taxonomy">Taxonomie</a>
+    {user.role === 'admin' && <a href="/admin/users">Utilisateurs</a>}
+  </nav>
+  {error !== null && <p class="notice error">Erreur : {error}</p>}
+  {ok !== null && <p class="notice ok">Opération réussie.</p>}
+  <slot />
+</Base>

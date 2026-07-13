@@ -1,76 +1,49 @@
 ---
 import Base from '../../layouts/Base.astro';
-import { authClient, SESSION_COOKIE } from '../../lib/api';
-import type { UserContext } from '@edge-cmf/shared-types';
+import Admin from '../../layouts/Admin.astro';
+import { getSessionUser } from '../../lib/session';
+import { contentClient } from '../../lib/api';
 
 const env = Astro.locals.runtime.env;
-const token = Astro.cookies.get(SESSION_COOKIE)?.value;
-
-let user: UserContext | null = null;
-if (token !== undefined) {
-  const res = await authClient(env).validate.$get(undefined, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (res.ok) {
-    const body = await res.json();
-    user = body.user;
-  }
-}
-
+const session = await getSessionUser(Astro.cookies, env);
 const error = Astro.url.searchParams.get('error');
-const ok = Astro.url.searchParams.get('ok');
-const canWrite = user !== null && (user.role === 'admin' || user.role === 'editor');
+
+let stats: { nodes: number; types: number } | null = null;
+if (session !== null) {
+  const client = contentClient(env);
+  const [nodesRes, typesRes] = await Promise.all([
+    client.api.nodes.$get({ query: { all: '1', limit: '100' } }),
+    client.api.types.$get(),
+  ]);
+  stats = {
+    nodes: nodesRes.ok ? (await nodesRes.json()).data.length : 0,
+    types: typesRes.ok ? (await typesRes.json()).data.length : 0,
+  };
+}
 ---
 
-<Base title="Administration — CMF Edge">
-  <h1>Administration</h1>
-
-  {error !== null && <p class="notice error">Erreur : {error}</p>}
-  {ok !== null && <p class="notice ok">Opération réussie.</p>}
-
-  {user === null ? (
-    <section>
-      <h2>Connexion</h2>
-      <form method="post" action="/api/login">
-        <label for="email">Email</label>
-        <input id="email" name="email" type="email" required />
-        <label for="password">Mot de passe</label>
-        <input id="password" name="password" type="password" minlength="8" required />
-        <button type="submit">Se connecter</button>
-      </form>
-    </section>
-  ) : (
-    <section>
-      <p>
-        Connecté : <strong>{user.email}</strong> (rôle : {user.role})
-        <form method="post" action="/api/logout" style="display:inline">
-          <button type="submit">Déconnexion</button>
-        </form>
-      </p>
-
-      {canWrite ? (
-        <>
-          <h2>Créer un nœud de contenu</h2>
-          <form method="post" action="/api/nodes">
-            <label for="title">Titre</label>
-            <input id="title" name="title" minlength="3" maxlength="255" required />
-            <label for="slug">Slug (a-z, 0-9, tirets)</label>
-            <input id="slug" name="slug" pattern="[a-z0-9-]+" required />
-            <label for="contentType">Type</label>
-            <select id="contentType" name="contentType">
-              <option value="article">Article</option>
-              <option value="page">Page</option>
-              <option value="product">Produit</option>
-            </select>
-            <label for="body">Contenu</label>
-            <textarea id="body" name="body" rows="8" required></textarea>
-            <label><input type="checkbox" name="status" checked /> Publié</label>
-            <button type="submit">Créer</button>
-          </form>
-        </>
-      ) : (
-        <p>Votre rôle ne permet pas de créer du contenu.</p>
-      )}
-    </section>
-  )}
-</Base>
+{session === null ? (
+  <Base title="Connexion — CMF Edge">
+    <h1>Administration</h1>
+    {error !== null && <p class="notice error">Erreur : {error}</p>}
+    <form method="post" action="/api/login" class="stack">
+      <label for="email">Email</label>
+      <input id="email" name="email" type="email" required />
+      <label for="password">Mot de passe</label>
+      <input id="password" name="password" type="password" minlength="8" required />
+      <button type="submit">Se connecter</button>
+    </form>
+  </Base>
+) : (
+  <Admin title="Tableau de bord — CMF Edge" user={session.user}>
+    <h1>Tableau de bord</h1>
+    <ul>
+      <li><a href="/admin/content">{stats?.nodes ?? 0} contenu(s)</a></li>
+      <li><a href="/admin/types">{stats?.types ?? 0} type(s) de contenu</a></li>
+    </ul>
+    <p class="muted">
+      API headless publique : déployer le gateway-worker puis consommer
+      <code>/v1/nodes</code> avec une clé API (header <code>x-api-key</code>).
+    </p>
+  </Admin>
+)}

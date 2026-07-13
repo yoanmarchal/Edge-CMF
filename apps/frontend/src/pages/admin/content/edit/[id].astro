@@ -1,0 +1,69 @@
+---
+import Admin from '../../../../layouts/Admin.astro';
+import FieldInput from '../../../../components/FieldInput.astro';
+import { getSessionUser, canWrite } from '../../../../lib/session';
+import { contentClient } from '../../../../lib/api';
+
+const env = Astro.locals.runtime.env;
+const session = await getSessionUser(Astro.cookies, env);
+if (session === null || !canWrite(session.user)) return Astro.redirect('/admin');
+
+const { id } = Astro.params;
+if (id === undefined) return Astro.redirect('/admin/content');
+
+const client = contentClient(env);
+const nodeRes = await client.api.node[':id'].$get({ param: { id } });
+if (!nodeRes.ok) return Astro.redirect('/admin/content?error=introuvable');
+const { data: node } = await nodeRes.json();
+
+const typeRes = await client.api.types[':id'].$get({ param: { id: node.contentType } });
+const typeDetail = typeRes.ok ? (await typeRes.json()).data : null;
+
+const vocabRes = await client.api.vocabularies.$get();
+const vocabularies = vocabRes.ok ? (await vocabRes.json()).data : [];
+const nodeTermIds = new Set(node.terms.map((t) => t.id));
+---
+
+<Admin title={`Éditer : ${node.title} — CMF Edge`} user={session.user}>
+  <h1>Éditer : {node.title}</h1>
+  <p class="muted">Type : {node.contentType} — <a href={`/${node.slug}`}>voir la page</a></p>
+
+  <form method="post" action="/api/admin/nodes" class="stack">
+    <input type="hidden" name="_action" value="update" />
+    <input type="hidden" name="id" value={node.id} />
+    <input type="hidden" name="contentType" value={node.contentType} />
+
+    <label for="title">Titre</label>
+    <input id="title" name="title" minlength="3" maxlength="255" value={node.title} required />
+    <label for="slug">Slug</label>
+    <input id="slug" name="slug" pattern="[a-z0-9-]+" value={node.slug} required />
+    <label for="body">Corps</label>
+    <textarea id="body" name="body" rows="8">{node.body}</textarea>
+
+    {typeDetail !== null && typeDetail.fields.length > 0 && <h2>Champs personnalisés</h2>}
+    {typeDetail?.fields.map((def) => <FieldInput def={def} value={node.fields[def.name]} />)}
+
+    {vocabularies.some((v) => v.terms.length > 0) && <h2>Taxonomie</h2>}
+    {vocabularies.map((v) =>
+      v.terms.length === 0 ? null : (
+        <fieldset>
+          <legend>{v.label}</legend>
+          {v.terms.map((t) => (
+            <label style="display:inline-block;margin-right:1rem">
+              <input type="checkbox" name="termIds" value={t.id} checked={nodeTermIds.has(t.id)} /> {t.label}
+            </label>
+          ))}
+        </fieldset>
+      ),
+    )}
+
+    <label><input type="checkbox" name="status" checked={node.status} /> Publié</label>
+    <button type="submit">Enregistrer</button>
+  </form>
+
+  <form method="post" action="/api/admin/nodes">
+    <input type="hidden" name="_action" value="delete" />
+    <input type="hidden" name="id" value={node.id} />
+    <button type="submit" class="danger">Supprimer ce contenu</button>
+  </form>
+</Admin>

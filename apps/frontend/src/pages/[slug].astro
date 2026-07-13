@@ -14,12 +14,27 @@ if (!res.ok) {
   return new Response('Page non trouvée', { status: 404 });
 }
 const { data: node } = await res.json();
+const fieldEntries = Object.entries(node.fields);
 ---
 
 <Base title={node.title}>
   <article>
     <h1>{node.title}</h1>
-    <p><small>Type : {node.contentType}</small></p>
+    <p class="muted">
+      Type : {node.contentType}
+      {node.terms.map((t) => <span class="badge">{t.label}</span>)}
+    </p>
     <div>{node.body}</div>
+
+    {fieldEntries.length > 0 && (
+      <dl>
+        {fieldEntries.map(([name, value]) => (
+          <>
+            <dt><strong>{name}</strong></dt>
+            <dd>{String(value)}</dd>
+          </>
+        ))}
+      </dl>
+    )}
   </article>
 </Base>

@@ -7,12 +7,12 @@ const env = Astro.locals.runtime.env;
 const client = contentClient(env);
 
 // Appel fortement typé : TypeScript sait exactement ce que contient `data`
-const res = await client.api.articles.$get({ query: {} });
+const res = await client.api.nodes.$get({ query: {} });
 const articles = res.ok ? (await res.json()).data : null;
 ---
 
 <Base title="Mon CMF Edge">
-  <h1>Derniers Articles</h1>
+  <h1>Derniers contenus</h1>
   {articles === null ? (
     <p class="notice error">
       Le service de contenu est indisponible. Vérifie que le content-worker tourne
@@ -22,11 +22,10 @@ const articles = res.ok ? (await res.json()).data : null;
     <p>Aucun contenu publié pour le moment.</p>
   ) : (
     <ul>
-      {/* Auto-complétion active sur article.title et article.slug */}
       {articles.map((article) => (
         <li>
           <a href={`/${article.slug}`}>{article.title}</a>
-          <small> — {article.contentType}</small>
+          <small class="muted"> — {article.contentType}</small>
         </li>
       ))}
     </ul>
