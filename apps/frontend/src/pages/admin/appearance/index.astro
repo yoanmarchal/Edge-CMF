@@ -1,17 +1,14 @@
 ---
 import AdminShell from '../../../layouts/AdminShell.astro';
-import TypeDetail from '../../../islands/TypeDetail';
+import Appearance from '../../../islands/Appearance';
 import { getSessionUser } from '../../../lib/session';
 
 const env = Astro.locals.runtime.env;
 const session = await getSessionUser(Astro.cookies, env);
 if (session === null) return Astro.redirect('/admin');
 if (session.user.role !== 'admin') return Astro.redirect('/admin?error=droits');
-
-const { id } = Astro.params;
-if (id === undefined || !/^[a-z][a-z0-9_]*$/.test(id)) return Astro.redirect('/admin/types');
 ---
 
-<AdminShell title={`${id} — CMF Edge`} user={session.user}>
-  <TypeDetail client:only="preact" id={id} />
+<AdminShell title="Apparence — CMF Edge" user={session.user}>
+  <Appearance client:only="preact" />
 </AdminShell>

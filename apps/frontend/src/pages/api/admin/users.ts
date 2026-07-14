@@ -2,51 +2,64 @@ import type { APIRoute } from 'astro';
 import { z } from 'zod';
 import { registerSchema, roleEnum } from '@edge-cmf/shared-types';
 import { authClient } from '../../../lib/api';
-import { getSessionUser } from '../../../lib/session';
+import { requireApiSession } from '../../../lib/session';
 
 const uuid = z.string().uuid();
-const BACK = '/admin/users';
 
-export const POST: APIRoute = async ({ request, locals, cookies, redirect }) => {
+/** API JSON /api/admin/users — gestion des comptes (adminOnly). */
+export const GET: APIRoute = async ({ locals, cookies }) => {
   const env = locals.runtime.env;
-  const session = await getSessionUser(cookies, env);
-  if (session === null || session.user.role !== 'admin') {
-    return redirect('/admin?error=droits', 303);
-  }
+  const auth = await requireApiSession(cookies, env, { adminOnly: true });
+  if (auth instanceof Response) return auth;
+  return authClient(env).users.$get(undefined, { headers: { Authorization: `Bearer ${auth.token}` } });
+};
 
-  const form = await request.formData();
-  const action = form.get('_action');
+export const POST: APIRoute = async ({ request, locals, cookies }) => {
+  const env = locals.runtime.env;
+  const auth = await requireApiSession(cookies, env, { adminOnly: true });
+  if (auth instanceof Response) return auth;
+
+  const body = (await request.json()) as Record<string, unknown>;
+  const action = body._action;
   const client = authClient(env);
-  const headers = { Authorization: `Bearer ${session.token}` };
+  const headers = { Authorization: `Bearer ${auth.token}` };
 
   if (action === 'create') {
     const parsed = registerSchema.safeParse({
-      email: form.get('email'),
-      password: form.get('password'),
-      role: form.get('role'),
+      email: body.email,
+      password: body.password,
+      role: body.role,
     });
-    if (!parsed.success) return redirect(`${BACK}?error=validation`, 303);
+    if (!parsed.success) return Response.json({ success: false, error: parsed.error.message }, { status: 400 });
     const res = await client.register.$post({ json: parsed.data }, { headers });
-    return redirect(res.ok ? `${BACK}?ok=1` : `${BACK}?error=conflit`, 303);
+    return res.ok
+      ? Response.json({ success: true }, { status: 201 })
+      : Response.json({ success: false, error: 'email déjà utilisé' }, { status: 409 });
   }
 
   if (action === 'set-role') {
-    const id = uuid.safeParse(form.get('id'));
-    const role = roleEnum.safeParse(form.get('role'));
-    if (!id.success || !role.success) return redirect(`${BACK}?error=validation`, 303);
+    const id = uuid.safeParse(body.id);
+    const role = roleEnum.safeParse(body.role);
+    if (!id.success || !role.success) {
+      return Response.json({ success: false, error: 'validation' }, { status: 400 });
+    }
     const res = await client.users[':id'].role.$put(
       { param: { id: id.data }, json: { role: role.data } },
       { headers },
     );
-    return redirect(res.ok ? `${BACK}?ok=1` : `${BACK}?error=modification`, 303);
+    return res.ok
+      ? Response.json({ success: true })
+      : Response.json({ success: false, error: 'modification' }, { status: 400 });
   }
 
   if (action === 'delete') {
-    const id = uuid.safeParse(form.get('id'));
-    if (!id.success) return redirect(`${BACK}?error=validation`, 303);
+    const id = uuid.safeParse(body.id);
+    if (!id.success) return Response.json({ success: false, error: 'validation' }, { status: 400 });
     const res = await client.users[':id'].$delete({ param: { id: id.data } }, { headers });
-    return redirect(res.ok ? `${BACK}?ok=1` : `${BACK}?error=suppression`, 303);
+    return res.ok
+      ? Response.json({ success: true })
+      : Response.json({ success: false, error: 'suppression' }, { status: 400 });
   }
 
-  return redirect(`${BACK}?error=action-inconnue`, 303);
+  return Response.json({ success: false, error: 'action inconnue' }, { status: 400 });
 };

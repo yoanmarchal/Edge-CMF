@@ -1,52 +1,14 @@
 ---
-import Admin from '../../../layouts/Admin.astro';
+import AdminShell from '../../../layouts/AdminShell.astro';
+import TypesList from '../../../islands/TypesList';
 import { getSessionUser } from '../../../lib/session';
-import { contentClient } from '../../../lib/api';
 
 const env = Astro.locals.runtime.env;
 const session = await getSessionUser(Astro.cookies, env);
 if (session === null) return Astro.redirect('/admin');
 if (session.user.role !== 'admin') return Astro.redirect('/admin?error=droits');
-
-const client = contentClient(env);
-const typesRes = await client.api.types.$get({ query: { kind: 'node' } });
-const types = typesRes.ok ? (await typesRes.json()).data : [];
 ---
 
-<Admin title="Types de contenu — CMF Edge" user={session.user}>
-  <h1>Types de contenu</h1>
-  <p class="muted">
-    Les bundles de nœuds (pages, articles…). Les composants réutilisables sont dans
-    <a href="/admin/paragraphs">Paragraphes</a>.
-  </p>
-
-  <table>
-    <thead><tr><th>Libellé</th><th>Nom machine</th><th>Description</th><th></th></tr></thead>
-    <tbody>
-      {types.map((t) => (
-        <tr>
-          <td><a href={`/admin/types/${t.id}`}>{t.label}</a></td>
-          <td><code>{t.id}</code></td>
-          <td class="muted">{t.description}</td>
-          <td><a href={`/admin/types/${t.id}`}>Gérer les champs →</a></td>
-        </tr>
-      ))}
-    </tbody>
-  </table>
-
-  <details>
-    <summary>Nouveau type de contenu</summary>
-    <form method="post" action="/api/admin/types" class="stack">
-      <input type="hidden" name="_action" value="create-type" />
-      <input type="hidden" name="kind" value="node" />
-      <input type="hidden" name="back" value="/admin/types" />
-      <label for="tid">Nom machine (a-z, 0-9, _)</label>
-      <input id="tid" name="id" pattern="[a-z][a-z0-9_]*" maxlength="64" required />
-      <label for="tlabel">Libellé</label>
-      <input id="tlabel" name="label" maxlength="255" required />
-      <label for="tdesc">Description</label>
-      <input id="tdesc" name="description" maxlength="1024" />
-      <button type="submit">Créer</button>
-    </form>
-  </details>
-</Admin>
+<AdminShell title="Types de contenu — CMF Edge" user={session.user}>
+  <TypesList client:only="preact" kind="node" />
+</AdminShell>

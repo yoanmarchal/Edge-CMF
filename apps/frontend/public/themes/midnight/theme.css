@@ -1,0 +1,22 @@
+/*
+ * Thème "midnight" — thème enfant qui surcharge "base" (voir theme.css).
+ * Ne redéfinit QUE les tokens nécessaires : `@layer theme-override` gagne
+ * toujours sur `@layer theme`, le reste des règles de base s'applique tel
+ * quel. C'est ça, l'overridabilité native — aucun !important.
+ */
+@layer theme-override {
+  :root {
+    --color-bg: #0b0e14;
+    --color-fg: #e6e8ee;
+    --color-muted: #8b93a7;
+    --color-border: #232838;
+    --color-brand: #7c9cff;
+    --color-brand-fg: #0b0e14;
+    --font-heading: Georgia, 'Times New Roman', serif;
+    --radius-md: 14px;
+  }
+
+  .site-header {
+    backdrop-filter: blur(6px);
+  }
+}

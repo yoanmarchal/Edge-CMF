@@ -1,0 +1,155 @@
+/*
+ * Thème natif "base" — CMF Edge (front public uniquement, jamais l'admin).
+ * Toujours chargé en premier (@layer theme). Définit les design tokens
+ * (custom properties) et les styles de composants du front.
+ *
+ * Pour créer un thème enfant overridable : copier ce dossier vers
+ * public/themes/<id>/theme.css, ne redéfinir QUE les tokens/règles à changer
+ * sous `@layer theme-override`. Ce layer gagne toujours sur `theme`, quel
+ * que soit l'ordre des <link> — c'est le mécanisme natif CSS @layer, pas
+ * de !important nécessaire. Voir public/themes/midnight/theme.css.
+ */
+@layer theme {
+  :root {
+    color-scheme: light dark;
+
+    --color-bg: #ffffff;
+    --color-fg: #1a1a1a;
+    --color-muted: #6b7280;
+    --color-border: #e5e7eb;
+    --color-brand: #2563eb;
+    --color-brand-fg: #ffffff;
+    --color-danger: #c0392b;
+    --color-success: #16a34a;
+
+    --font-body: system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --font-heading: var(--font-body);
+
+    --radius-sm: 4px;
+    --radius-md: 8px;
+
+    --space-1: 0.25rem;
+    --space-2: 0.5rem;
+    --space-3: 0.75rem;
+    --space-4: 1rem;
+    --space-6: 1.5rem;
+    --space-8: 2rem;
+
+    --container-width: 60rem;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --color-bg: #0f1115;
+      --color-fg: #e8e8e8;
+      --color-muted: #9aa0aa;
+      --color-border: #262b33;
+    }
+  }
+
+  body.site {
+    background: var(--color-bg);
+    color: var(--color-fg);
+    font-family: var(--font-body);
+  }
+
+  .site-container {
+    max-width: var(--container-width);
+    margin-inline: auto;
+    padding: var(--space-8) var(--space-4);
+  }
+
+  .site-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--space-4);
+    padding-block: var(--space-4);
+    border-bottom: 1px solid var(--color-border);
+    margin-bottom: var(--space-8);
+
+    nav {
+      display: flex;
+      gap: var(--space-4);
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+      font-weight: 600;
+
+      &:hover {
+        color: var(--color-brand);
+      }
+    }
+  }
+
+  .site h1,
+  .site h2,
+  .site h3 {
+    font-family: var(--font-heading);
+    line-height: 1.25;
+  }
+
+  .site a {
+    color: var(--color-brand);
+  }
+
+  .site .notice {
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-sm);
+    margin-block: var(--space-3);
+  }
+  .site .notice.error {
+    background: color-mix(in srgb, var(--color-danger) 12%, transparent);
+    border: 1px solid var(--color-danger);
+  }
+  .site .notice.ok {
+    background: color-mix(in srgb, var(--color-success) 12%, transparent);
+    border: 1px solid var(--color-success);
+  }
+
+  .site .muted {
+    color: var(--color-muted);
+    font-size: 0.9em;
+  }
+
+  .site form.stack {
+    display: grid;
+    gap: var(--space-2);
+    max-width: 30rem;
+    margin-block: var(--space-4);
+    padding: var(--space-4);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+  }
+  .site form.inline {
+    display: inline;
+  }
+
+  .site input,
+  .site textarea,
+  .site select,
+  .site button {
+    font: inherit;
+    padding: 0.4rem 0.6rem;
+    max-width: 100%;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+  }
+
+  .site button {
+    background: var(--color-brand);
+    color: var(--color-brand-fg);
+    border-color: transparent;
+    cursor: pointer;
+  }
+  .site button:hover {
+    filter: brightness(0.92);
+  }
+
+  .site ul {
+    padding-left: 1.2em;
+  }
+}

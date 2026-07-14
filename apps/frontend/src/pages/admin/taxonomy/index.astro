@@ -1,66 +1,14 @@
 ---
-import Admin from '../../../layouts/Admin.astro';
+import AdminShell from '../../../layouts/AdminShell.astro';
+import Taxonomy from '../../../islands/Taxonomy';
 import { getSessionUser, canWrite } from '../../../lib/session';
-import { contentClient } from '../../../lib/api';
 
 const env = Astro.locals.runtime.env;
 const session = await getSessionUser(Astro.cookies, env);
 if (session === null) return Astro.redirect('/admin');
 if (!canWrite(session.user)) return Astro.redirect('/admin?error=droits');
-
-const client = contentClient(env);
-const vocabRes = await client.api.vocabularies.$get();
-const vocabularies = vocabRes.ok ? (await vocabRes.json()).data : [];
 ---
 
-<Admin title="Taxonomie — CMF Edge" user={session.user}>
-  <h1>Taxonomie</h1>
-
-  <form method="post" action="/api/admin/taxonomy" class="stack">
-    <input type="hidden" name="_action" value="create-vocab" />
-    <h2>Nouveau vocabulaire</h2>
-    <label>Nom machine <input name="id" pattern="[a-z][a-z0-9_]*" maxlength="64" required /></label>
-    <label>Libellé <input name="label" maxlength="255" required /></label>
-    <button type="submit">Créer</button>
-  </form>
-
-  {vocabularies.map((v) => (
-    <section>
-      <h2>
-        {v.label} <code class="muted">{v.id}</code>
-        <form method="post" action="/api/admin/taxonomy" class="inline">
-          <input type="hidden" name="_action" value="delete-vocab" />
-          <input type="hidden" name="id" value={v.id} />
-          <button type="submit" class="danger">Supprimer</button>
-        </form>
-      </h2>
-
-      <table>
-        <thead><tr><th>Terme</th><th>Slug</th><th></th></tr></thead>
-        <tbody>
-          {v.terms.map((t) => (
-            <tr>
-              <td>{t.label}</td>
-              <td class="muted">{t.slug}</td>
-              <td>
-                <form method="post" action="/api/admin/taxonomy" class="inline">
-                  <input type="hidden" name="_action" value="delete-term" />
-                  <input type="hidden" name="id" value={t.id} />
-                  <button type="submit" class="danger">×</button>
-                </form>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-
-      <form method="post" action="/api/admin/taxonomy" class="stack">
-        <input type="hidden" name="_action" value="create-term" />
-        <input type="hidden" name="vocabularyId" value={v.id} />
-        <label>Nouveau terme <input name="label" maxlength="255" required /></label>
-        <label>Slug <input name="slug" pattern="[a-z0-9-]+" required /></label>
-        <button type="submit">Ajouter</button>
-      </form>
-    </section>
-  ))}
-</Admin>
+<AdminShell title="Taxonomie — CMF Edge" user={session.user}>
+  <Taxonomy client:only="preact" />
+</AdminShell>

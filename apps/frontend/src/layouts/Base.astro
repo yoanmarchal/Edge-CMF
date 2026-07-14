@@ -1,8 +1,17 @@
 ---
+import '../styles/reset.css';
+import { getActiveTheme } from '../lib/api';
+import { DEFAULT_THEME_ID } from '../lib/themes';
+
 interface Props {
   title: string;
 }
 const { title } = Astro.props;
+
+// SSR : le front garde le rendu serveur (SEO), contrairement à l'admin qui
+// n'en a plus besoin (voir AdminShell.astro + src/islands/). Le thème actif
+// est résolu ici pour injecter les bonnes feuilles de style natives.
+const activeTheme = await getActiveTheme(Astro.locals.runtime.env);
 ---
 
 <html lang="fr">
@@ -10,98 +19,27 @@ const { title } = Astro.props;
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title}</title>
-    <style is:global>
-      :root {
-        color-scheme: light dark;
-        font-family: system-ui, sans-serif;
-      }
-      body {
-        max-width: 60rem;
-        margin: 0 auto;
-        padding: 2rem 1rem;
-        line-height: 1.6;
-      }
-      nav.main {
-        display: flex;
-        gap: 1rem;
-        margin-bottom: 2rem;
-        border-bottom: 1px solid #8884;
-        padding-bottom: 0.75rem;
-      }
-      nav.sub {
-        display: flex;
-        gap: 0.75rem;
-        flex-wrap: wrap;
-        margin-bottom: 1.5rem;
-      }
-      nav.sub a {
-        padding: 0.25rem 0.75rem;
-        border: 1px solid #8886;
-        border-radius: 4px;
-        text-decoration: none;
-      }
-      form.stack {
-        display: grid;
-        gap: 0.5rem;
-        max-width: 30rem;
-        margin-block: 1rem;
-        padding: 1rem;
-        border: 1px solid #8884;
-        border-radius: 6px;
-      }
-      form.inline {
-        display: inline;
-      }
-      input, textarea, select, button {
-        font: inherit;
-        padding: 0.4rem 0.6rem;
-        max-width: 100%;
-      }
-      button {
-        cursor: pointer;
-      }
-      button.danger {
-        color: #c0392b;
-      }
-      table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-block: 1rem;
-      }
-      th, td {
-        text-align: left;
-        padding: 0.4rem 0.6rem;
-        border-bottom: 1px solid #8884;
-        vertical-align: top;
-      }
-      .notice { padding: 0.5rem 0.75rem; border-radius: 4px; margin-block: 0.75rem; }
-      .notice.error { background: #c0392b22; border: 1px solid #c0392b; }
-      .notice.ok { background: #27ae6022; border: 1px solid #27ae60; }
-      .badge {
-        display: inline-block;
-        padding: 0 0.5rem;
-        border: 1px solid #8886;
-        border-radius: 999px;
-        font-size: 0.85em;
-        margin-right: 0.25rem;
-      }
-      .muted { opacity: 0.65; font-size: 0.9em; }
-      .paragraph-item {
-        display: grid;
-        gap: 0.4rem;
-        border: 1px dashed #8886;
-        border-radius: 6px;
-        padding: 0.75rem;
-        margin-block: 0.5rem;
-      }
-      button.badge { background: none; }
+
+    <!-- Ordre des layers fixé explicitement : theme-override gagne toujours
+         sur theme, quel que soit l'ordre des <link> ci-dessous. -->
+    <style>
+      @layer reset, theme, theme-override;
     </style>
+    <link rel="stylesheet" href={`/themes/${DEFAULT_THEME_ID}/theme.css`} />
+    {activeTheme !== DEFAULT_THEME_ID && (
+      <link rel="stylesheet" href={`/themes/${activeTheme}/theme.css`} />
+    )}
   </head>
-  <body>
-    <nav class="main">
-      <a href="/">Accueil</a>
-      <a href="/admin">Admin</a>
-    </nav>
-    <slot />
+  <body class="site">
+    <div class="site-container">
+      <header class="site-header">
+        <a href="/"><strong>CMF Edge</strong></a>
+        <nav>
+          <a href="/">Accueil</a>
+          <a href="/admin">Admin</a>
+        </nav>
+      </header>
+      <slot />
+    </div>
   </body>
 </html>

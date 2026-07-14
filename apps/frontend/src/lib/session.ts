@@ -23,3 +23,27 @@ export async function getSessionUser(cookies: AstroCookies, env: Env): Promise<S
 export function canWrite(user: UserContext | null | undefined): boolean {
   return user != null && (user.role === 'admin' || user.role === 'editor');
 }
+
+/**
+ * Garde d'accès pour l'API JSON /api/admin/* consommée par les îlots Preact
+ * (client:only — l'admin n'a plus besoin de SSR, mais cette vérification de
+ * session reste nécessairement côté serveur : le cookie est httpOnly).
+ * Retourne directement une Response 401/403 prête à renvoyer, ou la session.
+ */
+export async function requireApiSession(
+  cookies: AstroCookies,
+  env: Env,
+  opts: { adminOnly?: boolean; writeOnly?: boolean } = {},
+): Promise<Session | Response> {
+  const session = await getSessionUser(cookies, env);
+  if (session === null) {
+    return Response.json({ success: false, error: 'Non authentifié' }, { status: 401 });
+  }
+  if (opts.adminOnly === true && session.user.role !== 'admin') {
+    return Response.json({ success: false, error: 'Non autorisé' }, { status: 403 });
+  }
+  if (opts.writeOnly === true && !canWrite(session.user)) {
+    return Response.json({ success: false, error: 'Non autorisé' }, { status: 403 });
+  }
+  return session;
+}

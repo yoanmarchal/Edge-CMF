@@ -89,6 +89,15 @@ export const nodeParagraphs = sqliteTable('node_paragraphs', {
   weight: integer('weight').notNull().default(0),
 });
 
+// ---------------------------------------------------------------------------
+// Réglages du site — clé/valeur (thème actif, etc.)
+// ---------------------------------------------------------------------------
+
+export const siteSettings = sqliteTable('site_settings', {
+  key: text('key').primaryKey(),
+  value: text('value').notNull(),
+});
+
 export type ContentNode = typeof contentNodes.$inferSelect;
 export type NodeParagraphRow = typeof nodeParagraphs.$inferSelect;
 export type NewContentNode = typeof contentNodes.$inferInsert;

@@ -1,66 +1,14 @@
 ---
-import Admin from '../../../layouts/Admin.astro';
+import AdminShell from '../../../layouts/AdminShell.astro';
+import Users from '../../../islands/Users';
 import { getSessionUser } from '../../../lib/session';
-import { authClient } from '../../../lib/api';
 
 const env = Astro.locals.runtime.env;
 const session = await getSessionUser(Astro.cookies, env);
 if (session === null) return Astro.redirect('/admin');
 if (session.user.role !== 'admin') return Astro.redirect('/admin?error=droits');
-
-const auth = { Authorization: `Bearer ${session.token}` };
-const usersRes = await authClient(env).users.$get(undefined, { headers: auth });
-const users = usersRes.ok ? (await usersRes.json()).data : [];
-const roles = ['admin', 'editor', 'viewer'] as const;
 ---
 
-<Admin title="Utilisateurs — CMF Edge" user={session.user}>
-  <h1>Utilisateurs</h1>
-
-  <form method="post" action="/api/admin/users" class="stack">
-    <input type="hidden" name="_action" value="create" />
-    <h2>Nouvel utilisateur</h2>
-    <label>Email <input name="email" type="email" required /></label>
-    <label>Mot de passe <input name="password" type="password" minlength="8" required /></label>
-    <label>Rôle
-      <select name="role">
-        {roles.map((r) => <option value={r}>{r}</option>)}
-      </select>
-    </label>
-    <button type="submit">Créer</button>
-  </form>
-
-  <table>
-    <thead><tr><th>Email</th><th>Rôle</th><th></th></tr></thead>
-    <tbody>
-      {users.map((u) => (
-        <tr>
-          <td>{u.email}</td>
-          <td>
-            {u.id === session.user.sub ? (
-              u.role
-            ) : (
-              <form method="post" action="/api/admin/users" class="inline">
-                <input type="hidden" name="_action" value="set-role" />
-                <input type="hidden" name="id" value={u.id} />
-                <select name="role">
-                  {roles.map((r) => <option value={r} selected={r === u.role}>{r}</option>)}
-                </select>
-                <button type="submit">OK</button>
-              </form>
-            )}
-          </td>
-          <td>
-            {u.id !== session.user.sub && (
-              <form method="post" action="/api/admin/users" class="inline">
-                <input type="hidden" name="_action" value="delete" />
-                <input type="hidden" name="id" value={u.id} />
-                <button type="submit" class="danger">Supprimer</button>
-              </form>
-            )}
-          </td>
-        </tr>
-      ))}
-    </tbody>
-  </table>
-</Admin>
+<AdminShell title="Utilisateurs — CMF Edge" user={session.user}>
+  <Users client:only="preact" selfId={session.user.sub} />
+</AdminShell>

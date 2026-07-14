@@ -5,84 +5,99 @@ import {
   insertFieldSchema,
   machineNameSchema,
   fieldTypeEnum,
+  typeKindEnum,
 } from '@edge-cmf/shared-types';
 import { contentClient } from '../../../lib/api';
-import { getSessionUser } from '../../../lib/session';
+import { requireApiSession } from '../../../lib/session';
 
 const uuid = z.string().uuid();
 
-/** Cible de retour sûre (fournie par un input hidden "back" des formulaires). */
-function backOf(form: FormData): string {
-  const raw = form.get('back');
-  return typeof raw === 'string' && raw.startsWith('/admin') ? raw : '/admin/types';
-}
-
-export const POST: APIRoute = async ({ request, locals, cookies, redirect }) => {
+/** API JSON /api/admin/types — types de contenu + Field UI (adminOnly). */
+export const GET: APIRoute = async ({ locals, cookies, url }) => {
   const env = locals.runtime.env;
-  const session = await getSessionUser(cookies, env);
-  if (session === null || session.user.role !== 'admin') {
-    return redirect('/admin?error=droits', 303);
+  const auth = await requireApiSession(cookies, env);
+  if (auth instanceof Response) return auth;
+
+  const client = contentClient(env);
+  const id = url.searchParams.get('id');
+  if (id !== null) {
+    const parsedId = machineNameSchema.safeParse(id);
+    if (!parsedId.success) return Response.json({ success: false, error: 'id invalide' }, { status: 400 });
+    return client.api.types[':id'].$get({ param: { id: parsedId.data } });
   }
 
-  const form = await request.formData();
-  const action = form.get('_action');
+  const kind = typeKindEnum.safeParse(url.searchParams.get('kind') ?? undefined);
+  return client.api.types.$get({ query: kind.success ? { kind: kind.data } : {} });
+};
+
+export const POST: APIRoute = async ({ request, locals, cookies }) => {
+  const env = locals.runtime.env;
+  const auth = await requireApiSession(cookies, env, { adminOnly: true });
+  if (auth instanceof Response) return auth;
+
+  const body = (await request.json()) as Record<string, unknown>;
+  const action = body._action;
   const client = contentClient(env);
-  const back = backOf(form);
 
   if (action === 'create-type') {
     const parsed = insertContentTypeSchema.safeParse({
-      id: form.get('id'),
-      label: form.get('label'),
-      description: form.get('description') ?? '',
-      kind: form.get('kind') ?? 'node',
+      id: body.id,
+      label: body.label,
+      description: body.description ?? '',
+      kind: body.kind ?? 'node',
     });
-    if (!parsed.success) return redirect(`${back}?error=validation`, 303);
+    if (!parsed.success) return Response.json({ success: false, error: parsed.error.message }, { status: 400 });
     const res = await client.api.types.$post({ json: parsed.data });
-    // Succès : atterrir directement sur la gestion des champs du nouveau type
-    return redirect(res.ok ? `/admin/types/${parsed.data.id}?ok=1` : `${back}?error=conflit`, 303);
+    return res.ok
+      ? Response.json({ success: true, id: parsed.data.id }, { status: 201 })
+      : Response.json({ success: false, error: 'ce type existe déjà' }, { status: 409 });
   }
 
   if (action === 'delete-type') {
-    const id = machineNameSchema.safeParse(form.get('id'));
-    if (!id.success) return redirect(`${back}?error=validation`, 303);
+    const id = machineNameSchema.safeParse(body.id);
+    if (!id.success) return Response.json({ success: false, error: 'validation' }, { status: 400 });
     const res = await client.api.types[':id'].$delete({ param: { id: id.data } });
     if (!res.ok) {
-      const body = await res.json();
-      const msg = 'error' in body ? body.error : 'suppression';
-      return redirect(`${back}?error=${encodeURIComponent(msg)}`, 303);
+      const respBody = await res.json();
+      const msg = 'error' in respBody ? respBody.error : 'suppression';
+      return Response.json({ success: false, error: msg }, { status: 400 });
     }
-    return redirect(`${back}?ok=1`, 303);
+    return Response.json({ success: true });
   }
 
   if (action === 'create-field') {
-    const optionsRaw = String(form.get('options') ?? '').trim();
+    const optionsRaw = String(body.options ?? '').trim();
     const options =
       optionsRaw.length > 0
         ? optionsRaw.split(',').map((o) => o.trim()).filter((o) => o.length > 0)
         : undefined;
-    const fieldType = fieldTypeEnum.safeParse(form.get('fieldType'));
-    if (!fieldType.success) return redirect(`${back}?error=validation`, 303);
+    const fieldType = fieldTypeEnum.safeParse(body.fieldType);
+    if (!fieldType.success) return Response.json({ success: false, error: 'validation' }, { status: 400 });
     const parsed = insertFieldSchema.safeParse({
       id: crypto.randomUUID(),
-      contentTypeId: form.get('contentTypeId'),
-      name: form.get('name'),
-      label: form.get('label'),
+      contentTypeId: body.contentTypeId,
+      name: body.name,
+      label: body.label,
       fieldType: fieldType.data,
-      required: form.get('required') === 'on',
+      required: body.required === true,
       settings: fieldType.data === 'select' && options !== undefined ? { options } : {},
-      weight: Number(form.get('weight') ?? 0),
+      weight: Number(body.weight ?? 0),
     });
-    if (!parsed.success) return redirect(`${back}?error=validation`, 303);
+    if (!parsed.success) return Response.json({ success: false, error: parsed.error.message }, { status: 400 });
     const res = await client.api.fields.$post({ json: parsed.data });
-    return redirect(res.ok ? `${back}?ok=1` : `${back}?error=conflit`, 303);
+    return res.ok
+      ? Response.json({ success: true, id: parsed.data.id }, { status: 201 })
+      : Response.json({ success: false, error: 'champ déjà existant' }, { status: 409 });
   }
 
   if (action === 'delete-field') {
-    const id = uuid.safeParse(form.get('id'));
-    if (!id.success) return redirect(`${back}?error=validation`, 303);
+    const id = uuid.safeParse(body.id);
+    if (!id.success) return Response.json({ success: false, error: 'validation' }, { status: 400 });
     const res = await client.api.fields[':id'].$delete({ param: { id: id.data } });
-    return redirect(res.ok ? `${back}?ok=1` : `${back}?error=suppression`, 303);
+    return res.ok
+      ? Response.json({ success: true })
+      : Response.json({ success: false, error: 'suppression' }, { status: 400 });
   }
 
-  return redirect(`${back}?error=action-inconnue`, 303);
+  return Response.json({ success: false, error: 'action inconnue' }, { status: 400 });
 };

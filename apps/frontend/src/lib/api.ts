@@ -2,6 +2,7 @@ import { hc } from 'hono/client';
 // Importation exclusive des TYPES : le code métier back n'alourdit pas le front (cahier v3 §4.2)
 import type { ContentAPI } from '@edge-cmf/content-worker';
 import type { AuthAPI } from '@edge-cmf/auth-worker';
+import { THEME_SETTING_KEY, resolveTheme } from './themes';
 
 /**
  * Clients RPC branchés directement sur la fonction fetch des Service Bindings.
@@ -21,6 +22,24 @@ export function authClient(env: Env) {
 }
 
 export const SESSION_COOKIE = 'cmf_session';
+
+/**
+ * Thème actif du front, résolu en SSR (cahier : le front garde du SSR, pas
+ * l'admin). Lecture tolérante : si le content-worker est indisponible, on
+ * retombe sur le thème natif plutôt que de casser le rendu public.
+ */
+export async function getActiveTheme(env: Env): Promise<string> {
+  try {
+    const res = await contentClient(env).api.settings[':key'].$get({
+      param: { key: THEME_SETTING_KEY },
+    });
+    if (!res.ok) return resolveTheme(null);
+    const { data } = await res.json();
+    return resolveTheme(data.value);
+  } catch {
+    return resolveTheme(null);
+  }
+}
 
 /** Charge les types de paragraphes avec leurs définitions de champs. */
 export async function loadParagraphTypes(client: ReturnType<typeof contentClient>) {

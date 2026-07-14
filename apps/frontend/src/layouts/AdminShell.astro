@@ -1,0 +1,61 @@
+---
+import '../styles/reset.css';
+import '../styles/admin.css';
+import type { UserContext } from '@edge-cmf/shared-types';
+
+interface Props {
+  title: string;
+  user: UserContext;
+}
+const { title, user } = Astro.props;
+const path = Astro.url.pathname;
+
+const nav: { href: string; label: string }[] = [
+  { href: '/admin', label: 'Tableau de bord' },
+  { href: '/admin/content', label: 'Contenu' },
+  { href: '/admin/types', label: 'Types de contenu' },
+  { href: '/admin/paragraphs', label: 'Paragraphes' },
+  { href: '/admin/taxonomy', label: 'Taxonomie' },
+  ...(user.role === 'admin'
+    ? [
+        { href: '/admin/users', label: 'Utilisateurs' },
+        { href: '/admin/appearance', label: 'Apparence' },
+      ]
+    : []),
+];
+---
+
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+
+    <!-- L'admin est full-size et n'a pas besoin du thème du front : design
+         system totalement séparé (admin.css), jamais mélangé au site public. -->
+    <style>
+      @layer reset, admin;
+    </style>
+  </head>
+  <body class="admin">
+    <div class="admin-shell">
+      <aside class="admin-sidebar">
+        <div class="admin-brand">CMF Edge — Admin</div>
+        {nav.map((item) => (
+          <a href={item.href} aria-current={path === item.href ? 'page' : undefined}>
+            {item.label}
+          </a>
+        ))}
+      </aside>
+      <header class="admin-topbar">
+        <span class="admin-user">{user.email} · {user.role}</span>
+        <form method="post" action="/api/logout" class="inline">
+          <button type="submit">Déconnexion</button>
+        </form>
+      </header>
+      <main class="admin-main">
+        <slot />
+      </main>
+    </div>
+  </body>
+</html>

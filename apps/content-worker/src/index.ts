@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
+import { z } from 'zod';
 import { drizzle } from 'drizzle-orm/d1';
 import type { DrizzleD1Database } from 'drizzle-orm/d1';
 import { and, asc, desc, eq, inArray } from 'drizzle-orm';
@@ -29,11 +30,15 @@ import {
   terms,
   nodeTerms,
   nodeParagraphs,
+  siteSettings,
   type ContentNode,
   type FieldRow,
   type TermRow,
 } from './schema';
 import { getCacheVersion, bumpCacheVersion, buildCacheKey } from './cache';
+
+const settingKeyParamSchema = z.object({ key: z.string().min(1).max(64) });
+const settingValueSchema = z.object({ value: z.string().max(256) });
 
 type Bindings = {
   DB: D1Database;
@@ -582,7 +587,39 @@ const routes = app
       return c.json({ success: false as const, error: 'Nœud introuvable' }, 404);
     }
     return c.json({ success: true as const, id });
-  });
+  })
+
+  // ------------------------------ Réglages ---------------------------------
+  // Clé/valeur générique — sert notamment au thème actif du front (admin
+  // « Apparence »). Lecture ouverte au binding (le front public l'appelle
+  // en SSR pour résoudre son thème), écriture réservée à l'admin côté Astro.
+  .get('/api/settings/:key', zValidator('param', settingKeyParamSchema), async (c) => {
+    const { key } = c.req.valid('param');
+    const db = drizzle(c.env.DB);
+    const [row] = await db
+      .select()
+      .from(siteSettings)
+      .where(eq(siteSettings.key, key))
+      .limit(1);
+    return c.json({ data: { key, value: row?.value ?? null } });
+  })
+
+  .put(
+    '/api/settings/:key',
+    zValidator('param', settingKeyParamSchema),
+    zValidator('json', settingValueSchema),
+    async (c) => {
+      const { key } = c.req.valid('param');
+      const { value } = c.req.valid('json');
+      const db = drizzle(c.env.DB);
+      await db
+        .insert(siteSettings)
+        .values({ key, value })
+        .onConflictDoUpdate({ target: siteSettings.key, set: { value } })
+        .run();
+      return c.json({ success: true as const, key, value });
+    },
+  );
 
 app.onError((err, c) => c.json({ success: false as const, error: err.message }, 500));
 

@@ -1,27 +1,12 @@
 ---
 import Base from '../../layouts/Base.astro';
-import Admin from '../../layouts/Admin.astro';
+import AdminShell from '../../layouts/AdminShell.astro';
+import Dashboard from '../../islands/Dashboard';
 import { getSessionUser } from '../../lib/session';
-import { contentClient } from '../../lib/api';
 
 const env = Astro.locals.runtime.env;
 const session = await getSessionUser(Astro.cookies, env);
 const error = Astro.url.searchParams.get('error');
-
-let stats: { nodes: number; types: number; paragraphTypes: number } | null = null;
-if (session !== null) {
-  const client = contentClient(env);
-  const [nodesRes, typesRes, ptypesRes] = await Promise.all([
-    client.api.nodes.$get({ query: { all: '1', limit: '100' } }),
-    client.api.types.$get({ query: { kind: 'node' } }),
-    client.api.types.$get({ query: { kind: 'paragraph' } }),
-  ]);
-  stats = {
-    nodes: nodesRes.ok ? (await nodesRes.json()).data.length : 0,
-    types: typesRes.ok ? (await typesRes.json()).data.length : 0,
-    paragraphTypes: ptypesRes.ok ? (await ptypesRes.json()).data.length : 0,
-  };
-}
 ---
 
 {session === null ? (
@@ -37,16 +22,8 @@ if (session !== null) {
     </form>
   </Base>
 ) : (
-  <Admin title="Tableau de bord — CMF Edge" user={session.user}>
+  <AdminShell title="Tableau de bord — CMF Edge" user={session.user}>
     <h1>Tableau de bord</h1>
-    <ul>
-      <li><a href="/admin/content">{stats?.nodes ?? 0} contenu(s)</a></li>
-      <li><a href="/admin/types">{stats?.types ?? 0} type(s) de contenu</a></li>
-      <li><a href="/admin/paragraphs">{stats?.paragraphTypes ?? 0} type(s) de paragraphe</a></li>
-    </ul>
-    <p class="muted">
-      API headless publique : déployer le gateway-worker puis consommer
-      <code>/v1/nodes</code> avec une clé API (header <code>x-api-key</code>).
-    </p>
-  </Admin>
+    <Dashboard client:only="preact" />
+  </AdminShell>
 )}
