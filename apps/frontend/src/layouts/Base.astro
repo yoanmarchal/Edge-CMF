@@ -1,5 +1,4 @@
 ---
-import '../styles/reset.css';
 import { getActiveTheme } from '../lib/api';
 import { DEFAULT_THEME_ID } from '../lib/themes';
 
@@ -26,11 +25,12 @@ const ADMIN_URL = import.meta.env.PUBLIC_ADMIN_URL ?? 'http://localhost:4322';
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title}</title>
 
-    <!-- Ordre des layers fixé explicitement : theme-override gagne toujours
-         sur theme, quel que soit l'ordre des <link> ci-dessous. -->
-    <style>
-      @layer reset, theme, theme-override;
-    </style>
+    <!-- reset.css doit être le tout premier stylesheet chargé : c'est lui qui
+         fixe l'ordre des cascade layers (reset, theme, theme-override) en
+         tête de fichier. Un <style> inline placé ici pour la même déclaration
+         ne suffit pas : Astro déplace les <style> de composant en fin de
+         <head> en dev, après que theme.css ait déjà fixé l'ordre autrement. -->
+    <link rel="stylesheet" href="/reset.css" />
     <link rel="stylesheet" href={`/themes/${DEFAULT_THEME_ID}/theme.css`} />
     {activeTheme !== DEFAULT_THEME_ID && (
       <link rel="stylesheet" href={`/themes/${activeTheme}/theme.css`} />

@@ -152,4 +152,93 @@
   .site ul {
     padding-left: 1.2em;
   }
+
+  .site .page {
+    display: grid;
+    gap: var(--space-6);
+  }
+
+  .site .content-list {
+    display: grid;
+    gap: var(--space-2);
+    padding-left: 0;
+    list-style: none;
+  }
+
+  .site .content-list li {
+    padding: var(--space-3) var(--space-4);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+  }
+
+  /* Page de contenu ([slug].astro) : rythme vertical explicite — le reset
+     global met toutes les marges à zéro, donc chaque bloc s'espace lui-même
+     plutôt que de compter sur des marges implicites du navigateur. */
+  .site article {
+    display: grid;
+    gap: var(--space-6);
+  }
+
+  .site .article-header {
+    display: grid;
+    gap: var(--space-2);
+  }
+
+  .site .article-header h1 {
+    font-size: 1.75rem;
+  }
+
+  .site .article-body {
+    line-height: 1.7;
+  }
+
+  .site .badge {
+    display: inline-block;
+    margin-inline-start: var(--space-2);
+    padding: 0.15rem 0.6rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--color-brand) 12%, transparent);
+    color: var(--color-brand);
+  }
+
+  .site .field-list {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: var(--space-2) var(--space-4);
+    padding: var(--space-4);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+  }
+  .site .field-list dt {
+    font-weight: 600;
+    color: var(--color-muted);
+  }
+
+  /* Paragraphes (blocs structurés dynamiques) : rendu générique, pas de
+     dépendance à un bundle précis. `[data-paragraph-type]` reste le point
+     d'extension pour un thème qui veut cibler un type précis. */
+  .site .paragraphs {
+    display: grid;
+    gap: var(--space-4);
+  }
+
+  .site .paragraph {
+    display: grid;
+    gap: var(--space-2);
+    padding: var(--space-4) var(--space-6);
+    border-left: 3px solid var(--color-border);
+    background: color-mix(in srgb, var(--color-border) 25%, transparent);
+    border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  }
+
+  .site .paragraph-body {
+    line-height: 1.7;
+  }
+
+  .site .paragraph-meta {
+    font-size: 0.85em;
+    color: var(--color-muted);
+  }
 }

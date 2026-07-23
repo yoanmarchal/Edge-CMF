@@ -1,5 +1,4 @@
 ---
-import '../styles/reset.css';
 import '../styles/admin.css';
 import type { UserContext } from '@edge-cmf/shared-types';
 
@@ -32,10 +31,11 @@ const nav: { href: string; label: string }[] = [
     <title>{title}</title>
 
     <!-- L'admin est full-size et n'a pas de thème front : design system
-         totalement séparé (admin.css), jamais mélangé au site public. -->
-    <style>
-      @layer reset, admin;
-    </style>
+         totalement séparé (admin.css), jamais mélangé au site public.
+         reset.css doit être le tout premier stylesheet chargé : c'est lui
+         qui fixe l'ordre des cascade layers (reset, admin) en tête de
+         fichier. Voir public/reset.css pour l'explication complète. -->
+    <link rel="stylesheet" href="/reset.css" />
   </head>
   <body class="admin">
     <div class="admin-shell">

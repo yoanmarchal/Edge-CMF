@@ -1,4 +1,15 @@
 /*
+ * Ordre des cascade layers fixé ICI, en tête du tout premier stylesheet
+ * chargé (voir src/layouts/Base.astro : ce fichier est lié en <link>,
+ * toujours avant theme.css). En CSS natif, la priorité entre layers se
+ * fixe à la première rencontre de chaque nom — une déclaration d'ordre
+ * placée plus tard (ou déplacée par un bundler, comme le fait Astro en dev
+ * avec les <style> inline des composants) n'a alors plus aucun effet.
+ * theme-override gagne toujours sur theme, quel que soit l'ordre des <link>.
+ */
+@layer reset, theme, theme-override;
+
+/*
  * Reset minimal partagé — front ET admin (@layer reset).
  * Volontairement neutre : ne définit aucune couleur ni typographie, ça,
  * c'est le rôle du thème (front) ou de admin.css (admin). CSS natif moderne,

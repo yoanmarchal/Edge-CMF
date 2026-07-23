@@ -1,5 +1,4 @@
 ---
-import '../styles/reset.css';
 import '../styles/admin.css';
 
 // Page de connexion, pré-authentification : pas de garde de session à
@@ -16,9 +15,10 @@ const { title } = Astro.props;
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title}</title>
-    <style>
-      @layer reset, admin;
-    </style>
+    <!-- reset.css doit être le tout premier stylesheet chargé : c'est lui qui
+         fixe l'ordre des cascade layers (reset, admin) en tête de fichier.
+         Voir public/reset.css pour l'explication complète. -->
+    <link rel="stylesheet" href="/reset.css" />
   </head>
   <body class="admin">
     <main class="admin-main login-page">

@@ -19,34 +19,50 @@ const fieldEntries = Object.entries(node.fields);
 
 <Base title={node.title}>
   <article>
-    <h1>{node.title}</h1>
-    <p class="muted">
-      Type : {node.contentType}
-      {node.terms.map((t) => <span class="badge">{t.label}</span>)}
-    </p>
-    <div>{node.body}</div>
+    <header class="article-header">
+      <h1>{node.title}</h1>
+      <p class="muted">
+        Type : {node.contentType}
+        {node.terms.map((t) => <span class="badge">{t.label}</span>)}
+      </p>
+    </header>
+
+    <div class="article-body">{node.body}</div>
 
     {fieldEntries.length > 0 && (
-      <dl>
+      <dl class="field-list">
         {fieldEntries.map(([name, value]) => (
           <>
-            <dt><strong>{name}</strong></dt>
+            <dt>{name}</dt>
             <dd>{String(value)}</dd>
           </>
         ))}
       </dl>
     )}
 
-    {/* Paragraphes : blocs structurés ordonnés (équivalent Drupal Paragraphs) */}
-    {node.paragraphs.map((p) => (
-      <section class="paragraph-item" data-paragraph-type={p.type}>
-        {Object.entries(p.fields).map(([name, value]) => (
-          <p>
-            <span class="muted">{name} — </span>
-            {String(value)}
-          </p>
-        ))}
-      </section>
-    ))}
+    {/* Paragraphes : blocs structurés ordonnés (équivalent Drupal Paragraphs).
+        Champs dynamiques par type (Field UI), donc le rendu reste agnostique
+        du bundle : le premier champ (poids le plus faible, généralement une
+        zone de texte) porte le contenu principal, les suivants sont affichés
+        en métadonnée (auteur, source…). `data-paragraph-type` reste le point
+        d'extension pour qu'un thème cible un bundle précis s'il le souhaite. */}
+    {node.paragraphs.length > 0 && (
+      <div class="paragraphs">
+        {node.paragraphs.map((p) => {
+          const entries = Object.entries(p.fields);
+          const [primary, ...rest] = entries;
+          return (
+            <section class="paragraph" data-paragraph-type={p.type}>
+              {primary && <p class="paragraph-body">{String(primary[1])}</p>}
+              {rest.length > 0 && (
+                <p class="paragraph-meta">
+                  {rest.map(([, value]) => String(value)).join(' — ')}
+                </p>
+              )}
+            </section>
+          );
+        })}
+      </div>
+    )}
   </article>
 </Base>

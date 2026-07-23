@@ -10,22 +10,24 @@ const articles = res.ok ? (await res.json()).data : null;
 ---
 
 <Base title="Mon CMF Edge">
-  <h1>Derniers contenus</h1>
-  {articles === null ? (
-    <p class="notice error">
-      Le service de contenu est indisponible. Vérifie que le content-worker tourne
-      et que les migrations D1 locales sont appliquées (<code>npm run db:migrate:local</code>).
-    </p>
-  ) : articles.length === 0 ? (
-    <p>Aucun contenu publié pour le moment.</p>
-  ) : (
-    <ul>
-      {articles.map((article) => (
-        <li>
-          <a href={`/${article.slug}`}>{article.title}</a>
-          <small class="muted"> — {article.contentType}</small>
-        </li>
-      ))}
-    </ul>
-  )}
+  <div class="page">
+    <h1>Derniers contenus</h1>
+    {articles === null ? (
+      <p class="notice error">
+        Le service de contenu est indisponible. Vérifie que le content-worker tourne
+        et que les migrations D1 locales sont appliquées (<code>npm run db:migrate:local</code>).
+      </p>
+    ) : articles.length === 0 ? (
+      <p class="muted">Aucun contenu publié pour le moment.</p>
+    ) : (
+      <ul class="content-list">
+        {articles.map((article) => (
+          <li>
+            <a href={`/${article.slug}`}>{article.title}</a>
+            <small class="muted"> — {article.contentType}</small>
+          </li>
+        ))}
+      </ul>
+    )}
+  </div>
 </Base>
