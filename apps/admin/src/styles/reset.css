@@ -1,0 +1,58 @@
+/*
+ * Reset minimal partagé — front ET admin (@layer reset).
+ * Volontairement neutre : ne définit aucune couleur ni typographie, ça,
+ * c'est le rôle du thème (front) ou de admin.css (admin). CSS natif moderne,
+ * zéro dépendance.
+ */
+@layer reset {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  * {
+    margin: 0;
+  }
+
+  html {
+    text-size-adjust: 100%;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    min-height: 100svh;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  img,
+  picture,
+  svg,
+  video {
+    display: block;
+    max-width: 100%;
+  }
+
+  input,
+  button,
+  textarea,
+  select {
+    font: inherit;
+    color: inherit;
+  }
+
+  button {
+    cursor: pointer;
+  }
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--focus-ring, #2563eb);
+    outline-offset: 2px;
+  }
+}

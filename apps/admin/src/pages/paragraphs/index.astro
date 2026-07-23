@@ -1,0 +1,14 @@
+---
+import AdminShell from '../../layouts/AdminShell.astro';
+import TypesList from '../../islands/TypesList';
+import { getSessionUser } from '../../lib/session';
+
+const env = Astro.locals.runtime.env;
+const session = await getSessionUser(Astro.cookies, env);
+if (session === null) return Astro.redirect('/');
+if (session.user.role !== 'admin') return Astro.redirect('/?error=droits');
+---
+
+<AdminShell title="Types de paragraphes — CMF Edge Admin" user={session.user}>
+  <TypesList client:only="preact" kind="paragraph" />
+</AdminShell>

@@ -5,13 +5,21 @@ CMF Edge-natif conforme au cahier des charges v3, étendu en véritable alternat
 ## Architecture
 
 ```
-Navigateur ──HTTPS──▶ Astro SSR + Admin UI (Cloudflare Pages)   ← exposé
-Apps externes ─HTTPS─▶ gateway-worker (REST /v1, clés API)      ← exposé (lecture seule)
+Visiteurs ──HTTPS──▶ apps/frontend  (Astro SSR, Cloudflare Pages)   ← exposé, site public
+Admins    ──HTTPS──▶ apps/admin     (Astro + îlots Preact, Pages)   ← exposé, séparé du site
+Apps externes ─HTTPS─▶ gateway-worker (REST /v1, clés API)          ← exposé (lecture seule)
                           │ Service Bindings (< 2ms, réseau interne)
                           ├──▶ content-worker  (types dynamiques, champs, taxonomies,
                           │                     nœuds — D1 "edge-cmf-content" + cache KV)
                           └──▶ auth-worker     (JWT/RBAC, users — D1 "edge-cmf-users")
 ```
+
+`apps/frontend` et `apps/admin` sont deux projets Cloudflare Pages indépendants,
+déployés séparément, chacun avec ses propres Service Bindings :
+`apps/frontend` ne parle qu'à `content-worker` (aucune SSR de données sensibles,
+thème résolu côté serveur) ; `apps/admin` parle à `content-worker` et
+`auth-worker`, ne fait aucun SSR de données (tout passe par des îlots Preact
+`client:only` + API JSON `/api/*`).
 
 ## Correspondance Drupal
 
@@ -24,7 +32,7 @@ Apps externes ─HTTPS─▶ gateway-worker (REST /v1, clés API)      ← expos
 | Users + rôles | auth-worker : JWT, PBKDF2, rôles admin/editor/viewer |
 | Cache tags | Cache API + version KV partagée (invalidation sur mutation) |
 | JSON:API / headless | gateway-worker `/v1/*` (clés API, rate-limit, CORS, cache) |
-| Admin UI | `/admin` : contenu, types & champs, taxonomie, utilisateurs |
+| Admin UI | `apps/admin` (projet séparé) : contenu, types & champs, taxonomie, utilisateurs |
 
 ## Démarrage
 
@@ -34,16 +42,22 @@ npm run db:migrate:local        # crée les tables D1 locales (content + users)
 cp apps/auth-worker/.dev.vars.example apps/auth-worker/.dev.vars   # puis éditer les secrets
 ```
 
-4 terminaux (ports wrangler et inspecteurs distincts, déjà configurés) :
+5 terminaux (ports wrangler et inspecteurs distincts, déjà configurés) :
 
 ```bash
 npm run dev:content    # 8701 — worker contenu (interne)
 npm run dev:auth       # 8702 — worker auth (interne)
 npm run dev:gateway    # 8703 — API publique /v1 (optionnel en dev)
-npm run build -w @edge-cmf/frontend && cd apps/frontend && npx wrangler pages dev ./dist   # 8788 — site + admin
+npm run dev:front      # 4321 — site public (apps/frontend, Astro dev)
+npm run dev:admin      # 4322 — admin (apps/admin, Astro dev)
 ```
 
 Les Service Bindings se connectent automatiquement entre processus (`[connected]`).
+En local, le site public pointe vers l'admin via `PUBLIC_ADMIN_URL` (défaut
+`http://localhost:4322`) et l'admin pointe vers le site public via
+`PUBLIC_SITE_URL` (défaut relatif/vide). Ces variables se définissent dans les
+fichiers `.env`/`.dev.vars` respectifs de chaque app, ou en variables
+d'environnement Cloudflare Pages en production.
 
 ### Premier admin (bootstrap)
 
@@ -54,7 +68,7 @@ curl -X POST http://localhost:8702/register \
   -d '{"email":"admin@example.com","password":"motdepassefort","role":"admin"}'
 ```
 
-Puis http://localhost:8788/admin → connexion → tout se gère depuis l'interface :
+Puis http://localhost:4322 → connexion → tout se gère depuis l'interface :
 créer des types de contenu et leurs champs (texte, nombre, booléen, date, liste,
 référence…), des types de paragraphes (composants réutilisables — deux fournis :
 « Bloc de texte » et « Citation »), des vocabulaires et termes, des utilisateurs
@@ -88,8 +102,9 @@ cd apps/auth-worker && npx wrangler secret put JWT_SECRET && npx wrangler secret
 ## Déploiement
 
 Push sur `main` → GitHub Actions : typecheck strict, migrations D1, deploy des
-3 workers, build + deploy Pages. Secrets requis : `CLOUDFLARE_API_TOKEN`,
-`CLOUDFLARE_ACCOUNT_ID`. Manuel : `npm run db:migrate:remote && npm run deploy:workers && npm run deploy:front`.
+3 workers, build + deploy des deux projets Pages (`frontend` et `admin`).
+Secrets requis : `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`.
+Manuel : `npm run db:migrate:remote && npm run deploy:workers && npm run deploy:front && npm run deploy:admin`.
 
 ## Structure
 
@@ -98,12 +113,13 @@ Push sur `main` → GitHub Actions : typecheck strict, migrations D1, deploy des
 ├── apps/content-worker/     # Entités dynamiques, taxonomies, nœuds, cache Edge
 ├── apps/auth-worker/        # JWT, PBKDF2, RBAC, gestion utilisateurs
 ├── apps/gateway-worker/     # API REST publique /v1 (clés API, rate-limit, CORS)
-├── apps/frontend/           # Astro SSR public + admin UI complète
+├── apps/frontend/           # Astro SSR — site public uniquement, thème natif
+├── apps/admin/              # Astro + îlots Preact — admin UI, projet Pages séparé
 └── .github/workflows/       # CI/CD
 ```
 
 ## Garanties (cahier des charges v1 §6)
 
-TypeScript strict sur les 5 workspaces, zéro `any` ; validation Zod systématique
+TypeScript strict sur les 6 workspaces, zéro `any` ; validation Zod systématique
 (y compris champs personnalisés dynamiques) ; workers < 100 Ko gzip (limite 1 Mo) ;
 back-end invisible depuis Internet hors gateway lecture seule.

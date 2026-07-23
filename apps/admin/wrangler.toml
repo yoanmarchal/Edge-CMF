@@ -1,0 +1,17 @@
+# Admin — Cloudflare Pages, projet distinct du front public (apps/frontend).
+# Exposée publiquement (derrière l'auth applicative), mais découplée du
+# déploiement du site : domaines/sous-domaines séparés, cycles de vie séparés.
+name = "edge-cmf-admin"
+compatibility_date = "2025-06-01"
+compatibility_flags = ["nodejs_compat"]
+pages_build_output_dir = "./dist"
+
+# Service Bindings vers les mêmes micro-workers internes que le front
+# (cahier v3 §3). Latence < 2ms, aucun passage par le réseau HTTP public.
+[[services]]
+binding = "CONTENT_WORKER"
+service = "content-worker"
+
+[[services]]
+binding = "AUTH_WORKER"
+service = "auth-worker"

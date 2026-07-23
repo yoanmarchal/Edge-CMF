@@ -14,13 +14,18 @@
     "dev:auth": "npm run dev -w @edge-cmf/auth-worker",
     "dev:gateway": "npm run dev -w @edge-cmf/gateway-worker",
     "dev:front": "npm run dev -w @edge-cmf/frontend",
+    "dev:admin": "npm run dev -w @edge-cmf/admin",
     "deploy:workers": "npm run deploy -w @edge-cmf/content-worker && npm run deploy -w @edge-cmf/auth-worker && npm run deploy -w @edge-cmf/gateway-worker",
     "deploy:front": "npm run deploy -w @edge-cmf/frontend",
+    "deploy:admin": "npm run deploy -w @edge-cmf/admin",
     "db:migrate:local": "npm run db:migrate:local -w @edge-cmf/content-worker && npm run db:migrate:local -w @edge-cmf/auth-worker",
     "db:migrate:remote": "npm run db:migrate:remote -w @edge-cmf/content-worker && npm run db:migrate:remote -w @edge-cmf/auth-worker"
   },
   "devDependencies": {
     "typescript": "^5.7.3"
+  },
+  "overrides": {
+    "wrangler": "4.59.2"
   },
   "engines": {
     "node": ">=20"

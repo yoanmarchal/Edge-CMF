@@ -1,15 +1,12 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
 import cloudflare from '@astrojs/cloudflare';
-import preact from '@astrojs/preact';
 
-// Rendu SSR à l'Edge sur Cloudflare Pages (cahier v3 §2.1) pour le FRONT public.
-// L'admin, elle, n'a pas besoin de SSR : ses pages sont des coquilles Astro
-// (garde de session uniquement) qui montent des îlots Preact 100% client
-// (client:only) consommant l'API JSON /api/admin/* — voir src/islands/.
+// Rendu SSR à l'Edge sur Cloudflare Pages (cahier v3 §2.1) — site public
+// uniquement. L'admin vit dans son propre projet (apps/admin), déployé
+// séparément, avec son propre design system et ses propres îlots Preact.
 export default defineConfig({
   output: 'server',
-  integrations: [preact()],
   adapter: cloudflare({
     // Émule les bindings (Service Bindings, D1…) en dev local via wrangler
     platformProxy: { enabled: true },

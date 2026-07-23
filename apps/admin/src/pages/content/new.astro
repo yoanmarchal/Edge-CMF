@@ -1,0 +1,15 @@
+---
+import AdminShell from '../../layouts/AdminShell.astro';
+import ContentForm from '../../islands/ContentForm';
+import { getSessionUser, canWrite } from '../../lib/session';
+
+const env = Astro.locals.runtime.env;
+const session = await getSessionUser(Astro.cookies, env);
+if (session === null || !canWrite(session.user)) return Astro.redirect('/');
+
+const typeId = Astro.url.searchParams.get('type') ?? 'page';
+---
+
+<AdminShell title="Nouveau contenu — CMF Edge Admin" user={session.user}>
+  <ContentForm client:only="preact" mode="new" typeId={typeId} />
+</AdminShell>

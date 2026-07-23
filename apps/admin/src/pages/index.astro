@@ -1,0 +1,33 @@
+---
+import Login from '../layouts/Login.astro';
+import AdminShell from '../layouts/AdminShell.astro';
+import Dashboard from '../islands/Dashboard';
+import { getSessionUser } from '../lib/session';
+
+const env = Astro.locals.runtime.env;
+const session = await getSessionUser(Astro.cookies, env);
+const error = Astro.url.searchParams.get('error');
+---
+
+{session === null ? (
+  <Login title="Connexion — CMF Edge Admin">
+    <h1>Administration</h1>
+    {error !== null && <p class="notice error">Erreur : {error}</p>}
+    <form method="post" action="/api/login" class="stack">
+      <label class="field">
+        Email
+        <input name="email" type="email" required />
+      </label>
+      <label class="field">
+        Mot de passe
+        <input name="password" type="password" minlength="8" required />
+      </label>
+      <button type="submit">Se connecter</button>
+    </form>
+  </Login>
+) : (
+  <AdminShell title="Tableau de bord — CMF Edge Admin" user={session.user}>
+    <h1>Tableau de bord</h1>
+    <Dashboard client:only="preact" />
+  </AdminShell>
+)}

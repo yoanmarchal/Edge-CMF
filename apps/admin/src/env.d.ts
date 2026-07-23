@@ -11,6 +11,7 @@ interface InternalFetcher {
 
 interface Env {
   readonly CONTENT_WORKER: InternalFetcher;
+  readonly AUTH_WORKER: InternalFetcher;
 }
 
 type Runtime = import('@astrojs/cloudflare').Runtime<Env>;

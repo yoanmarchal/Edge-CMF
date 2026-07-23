@@ -1,15 +1,13 @@
-# Front-End Astro SSR — Cloudflare Pages (SEULE ENTITÉ EXPOSÉE PUBLIQUEMENT)
+# Front-End Astro SSR — Cloudflare Pages (site public uniquement).
+# L'admin est un projet Cloudflare Pages distinct (apps/admin/wrangler.toml).
 name = "edge-cmf"
 compatibility_date = "2025-06-01"
 compatibility_flags = ["nodejs_compat"]
 pages_build_output_dir = "./dist"
 
-# Service Bindings vers les micro-workers internes (cahier v3 §3)
-# Latence < 2ms, aucun passage par le réseau HTTP public.
+# Service Binding vers le content-worker interne (cahier v3 §3). Latence
+# < 2ms, aucun passage par le réseau HTTP public. Le front n'a pas besoin
+# de l'auth-worker : aucune mutation, aucune session ici.
 [[services]]
 binding = "CONTENT_WORKER"
 service = "content-worker"
-
-[[services]]
-binding = "AUTH_WORKER"
-service = "auth-worker"

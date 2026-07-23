@@ -9,9 +9,15 @@ interface Props {
 const { title } = Astro.props;
 
 // SSR : le front garde le rendu serveur (SEO), contrairement à l'admin qui
-// n'en a plus besoin (voir AdminShell.astro + src/islands/). Le thème actif
-// est résolu ici pour injecter les bonnes feuilles de style natives.
+// n'en a plus besoin — et qui vit maintenant dans son propre projet
+// (apps/admin), déployé séparément. Le thème actif est résolu ici pour
+// injecter les bonnes feuilles de style natives.
 const activeTheme = await getActiveTheme(Astro.locals.runtime.env);
+
+// L'admin est un déploiement Cloudflare Pages distinct : à renseigner via
+// PUBLIC_ADMIN_URL en prod (ex. "https://admin.mondomaine.com"). Par défaut,
+// pointe sur `astro dev --port 4322` d'apps/admin en local.
+const ADMIN_URL = import.meta.env.PUBLIC_ADMIN_URL ?? 'http://localhost:4322';
 ---
 
 <html lang="fr">
@@ -36,7 +42,7 @@ const activeTheme = await getActiveTheme(Astro.locals.runtime.env);
         <a href="/"><strong>CMF Edge</strong></a>
         <nav>
           <a href="/">Accueil</a>
-          <a href="/admin">Admin</a>
+          <a href={ADMIN_URL}>Admin</a>
         </nav>
       </header>
       <slot />
