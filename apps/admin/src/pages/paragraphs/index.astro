@@ -3,8 +3,7 @@ import AdminShell from '../../layouts/AdminShell.astro';
 import TypesList from '../../islands/TypesList';
 import { getSessionUser } from '../../lib/session';
 
-const env = Astro.locals.runtime.env;
-const session = await getSessionUser(Astro.cookies, env);
+const session = await getSessionUser(Astro.cookies);
 if (session === null) return Astro.redirect('/');
 if (session.user.role !== 'admin') return Astro.redirect('/?error=droits');
 ---

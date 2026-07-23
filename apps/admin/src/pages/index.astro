@@ -4,8 +4,7 @@ import AdminShell from '../layouts/AdminShell.astro';
 import Dashboard from '../islands/Dashboard';
 import { getSessionUser } from '../lib/session';
 
-const env = Astro.locals.runtime.env;
-const session = await getSessionUser(Astro.cookies, env);
+const session = await getSessionUser(Astro.cookies);
 const error = Astro.url.searchParams.get('error');
 ---
 

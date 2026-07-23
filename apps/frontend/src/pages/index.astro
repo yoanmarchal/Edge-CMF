@@ -2,9 +2,7 @@
 import Base from '../layouts/Base.astro';
 import { contentClient } from '../lib/api';
 
-// Astro permet d'accéder aux bindings configurés sur Cloudflare Pages (cahier v3 §4.2)
-const env = Astro.locals.runtime.env;
-const client = contentClient(env);
+const client = contentClient();
 
 // Appel fortement typé : TypeScript sait exactement ce que contient `data`
 const res = await client.api.nodes.$get({ query: {} });

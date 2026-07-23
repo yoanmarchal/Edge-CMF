@@ -3,8 +3,7 @@ import AdminShell from '../../layouts/AdminShell.astro';
 import Taxonomy from '../../islands/Taxonomy';
 import { getSessionUser, canWrite } from '../../lib/session';
 
-const env = Astro.locals.runtime.env;
-const session = await getSessionUser(Astro.cookies, env);
+const session = await getSessionUser(Astro.cookies);
 if (session === null) return Astro.redirect('/');
 if (!canWrite(session.user)) return Astro.redirect('/?error=droits');
 ---

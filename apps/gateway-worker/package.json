@@ -8,7 +8,7 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "dev": "wrangler dev --port 8703 --inspector-port 9233",
+    "dev": "wrangler dev --port 8703 --inspector-port 9233 --persist-to ../../.wrangler-state",
     "deploy": "wrangler deploy",
     "typecheck": "tsc --noEmit"
   },
@@ -22,6 +22,6 @@
     "@cloudflare/workers-types": "^4.20250101.0",
     "@edge-cmf/content-worker": "*",
     "typescript": "^5.7.3",
-    "wrangler": "^4.0.0"
+    "wrangler": "4.114.0"
   }
 }

@@ -9,12 +9,24 @@ interface InternalFetcher {
   fetch: typeof fetch;
 }
 
-interface Env {
-  readonly CONTENT_WORKER: InternalFetcher;
+/**
+ * Depuis Astro 6/@astrojs/cloudflare v13+, `Astro.locals.runtime` est
+ * supprimé : les bindings s'accèdent via `import { env } from 'cloudflare:workers'`,
+ * typé contre ce namespace global `Cloudflare.Env` (et non plus un `Env`
+ * local threadé à travers `locals`).
+ */
+declare namespace Cloudflare {
+  interface Env {
+    readonly CONTENT_WORKER: InternalFetcher;
+  }
 }
 
-type Runtime = import('@astrojs/cloudflare').Runtime<Env>;
-
-declare namespace App {
-  interface Locals extends Runtime {}
+/**
+ * Déclaration minimale du module virtuel `cloudflare:workers` (fourni par le
+ * runtime Workers). On évite d'importer tout `@cloudflare/workers-types` :
+ * ce paquet redéfinit `Request`/`Response`/`fetch` dans une saveur workerd
+ * qui entre en conflit avec la lib DOM utilisée par Astro/TypeScript ici.
+ */
+declare module 'cloudflare:workers' {
+  export const env: Cloudflare.Env;
 }

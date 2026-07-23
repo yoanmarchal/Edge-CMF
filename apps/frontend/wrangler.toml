@@ -1,9 +1,13 @@
-# Front-End Astro SSR — Cloudflare Pages (site public uniquement).
-# L'admin est un projet Cloudflare Pages distinct (apps/admin/wrangler.toml).
+# Front-End Astro SSR — Cloudflare Workers (site public uniquement).
+# @astrojs/cloudflare v13+ (Astro 6+) a supprimé le support de Cloudflare
+# Pages ; ce projet déploie désormais sur Workers (`wrangler deploy`).
+# `main`/`assets`/`compatibility_date` par défaut sont injectés
+# automatiquement par l'adaptateur si absents ; on les déclare ici pour
+# rester explicite et déterministe.
+# L'admin est un projet Cloudflare Workers distinct (apps/admin/wrangler.toml).
 name = "edge-cmf"
 compatibility_date = "2025-06-01"
 compatibility_flags = ["nodejs_compat"]
-pages_build_output_dir = "./dist"
 
 # Service Binding vers le content-worker interne (cahier v3 §3). Latence
 # < 2ms, aucun passage par le réseau HTTP public. Le front n'a pas besoin

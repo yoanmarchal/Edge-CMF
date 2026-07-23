@@ -3,8 +3,7 @@ import AdminShell from '../../layouts/AdminShell.astro';
 import ContentForm from '../../islands/ContentForm';
 import { getSessionUser, canWrite } from '../../lib/session';
 
-const env = Astro.locals.runtime.env;
-const session = await getSessionUser(Astro.cookies, env);
+const session = await getSessionUser(Astro.cookies);
 if (session === null || !canWrite(session.user)) return Astro.redirect('/');
 
 const typeId = Astro.url.searchParams.get('type') ?? 'page';

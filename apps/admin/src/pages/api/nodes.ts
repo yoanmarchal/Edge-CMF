@@ -11,12 +11,11 @@ const uuid = z.string().uuid();
  * (client:only, l'admin n'a pas de SSR de contenu). Proxy authentifié vers
  * le content-worker (Service Binding, jamais exposé directement au client).
  */
-export const GET: APIRoute = async ({ locals, cookies, url }) => {
-  const env = locals.runtime.env;
-  const auth = await requireApiSession(cookies, env);
+export const GET: APIRoute = async ({ cookies, url }) => {
+  const auth = await requireApiSession(cookies);
   if (auth instanceof Response) return auth;
 
-  const client = contentClient(env);
+  const client = contentClient();
   const id = url.searchParams.get('id');
   if (id !== null) {
     const parsedId = uuid.safeParse(id);
@@ -29,14 +28,13 @@ export const GET: APIRoute = async ({ locals, cookies, url }) => {
   return proxyResponse(await client.api.nodes.$get({ query }));
 };
 
-export const POST: APIRoute = async ({ request, locals, cookies }) => {
-  const env = locals.runtime.env;
-  const auth = await requireApiSession(cookies, env, { writeOnly: true });
+export const POST: APIRoute = async ({ request, cookies }) => {
+  const auth = await requireApiSession(cookies, { writeOnly: true });
   if (auth instanceof Response) return auth;
 
   const body = (await request.json()) as Record<string, unknown>;
   const action = body._action;
-  const client = contentClient(env);
+  const client = contentClient();
 
   if (action === 'delete') {
     const id = uuid.safeParse(body.id);

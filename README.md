@@ -5,21 +5,31 @@ CMF Edge-natif conforme au cahier des charges v3, étendu en véritable alternat
 ## Architecture
 
 ```
-Visiteurs ──HTTPS──▶ apps/frontend  (Astro SSR, Cloudflare Pages)   ← exposé, site public
-Admins    ──HTTPS──▶ apps/admin     (Astro + îlots Preact, Pages)   ← exposé, séparé du site
-Apps externes ─HTTPS─▶ gateway-worker (REST /v1, clés API)          ← exposé (lecture seule)
+Visiteurs ──HTTPS──▶ apps/frontend  (Astro 7 SSR, Cloudflare Workers)   ← exposé, site public
+Admins    ──HTTPS──▶ apps/admin     (Astro 7 + îlots Preact, Workers)   ← exposé, séparé du site
+Apps externes ─HTTPS─▶ gateway-worker (REST /v1, clés API)              ← exposé (lecture seule)
                           │ Service Bindings (< 2ms, réseau interne)
                           ├──▶ content-worker  (types dynamiques, champs, taxonomies,
                           │                     nœuds — D1 "edge-cmf-content" + cache KV)
                           └──▶ auth-worker     (JWT/RBAC, users — D1 "edge-cmf-users")
 ```
 
-`apps/frontend` et `apps/admin` sont deux projets Cloudflare Pages indépendants,
-déployés séparément, chacun avec ses propres Service Bindings :
-`apps/frontend` ne parle qu'à `content-worker` (aucune SSR de données sensibles,
-thème résolu côté serveur) ; `apps/admin` parle à `content-worker` et
-`auth-worker`, ne fait aucun SSR de données (tout passe par des îlots Preact
-`client:only` + API JSON `/api/*`).
+`apps/frontend` et `apps/admin` sont deux Workers Cloudflare indépendants
+(Astro 7 + `@astrojs/cloudflare` v14 — Cloudflare Pages n'est plus supporté par
+l'adaptateur depuis sa v13 ; migration effectuée), déployés séparément via
+`wrangler deploy`, chacun avec ses propres Service Bindings : `apps/frontend`
+ne parle qu'à `content-worker` (aucune SSR de données sensibles, thème résolu
+côté serveur) ; `apps/admin` parle à `content-worker` et `auth-worker`, ne fait
+aucun SSR de données (tout passe par des îlots Preact `client:only` + API JSON
+`/api/*`).
+
+Depuis Astro 6/l'adaptateur v13+, `astro dev` tourne directement sur le
+runtime `workerd` réel (via le plugin Vite Cloudflare) et l'accès aux bindings
+se fait par `import { env } from 'cloudflare:workers'` (l'ancienne API
+`Astro.locals.runtime.env` a été supprimée). Les Service Bindings vers
+`content-worker`/`auth-worker` sont démarrés automatiquement en dev via
+`auxiliaryWorkers` dans `astro.config.mjs` — plus besoin de les lancer dans des
+terminaux séparés pour développer sur `apps/frontend`/`apps/admin` seuls.
 
 ## Correspondance Drupal
 
@@ -102,8 +112,9 @@ cd apps/auth-worker && npx wrangler secret put JWT_SECRET && npx wrangler secret
 ## Déploiement
 
 Push sur `main` → GitHub Actions : typecheck strict, migrations D1, deploy des
-3 workers, build + deploy des deux projets Pages (`frontend` et `admin`).
-Secrets requis : `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`.
+3 micro-workers, build + deploy des deux Workers Astro (`frontend` et `admin`,
+`wrangler deploy` — plus de `wrangler pages deploy`). Secrets requis :
+`CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`.
 Manuel : `npm run db:migrate:remote && npm run deploy:workers && npm run deploy:front && npm run deploy:admin`.
 
 ## Structure
@@ -113,8 +124,8 @@ Manuel : `npm run db:migrate:remote && npm run deploy:workers && npm run deploy:
 ├── apps/content-worker/     # Entités dynamiques, taxonomies, nœuds, cache Edge
 ├── apps/auth-worker/        # JWT, PBKDF2, RBAC, gestion utilisateurs
 ├── apps/gateway-worker/     # API REST publique /v1 (clés API, rate-limit, CORS)
-├── apps/frontend/           # Astro SSR — site public uniquement, thème natif
-├── apps/admin/              # Astro + îlots Preact — admin UI, projet Pages séparé
+├── apps/frontend/           # Astro 7 SSR (Cloudflare Workers) — site public, thème natif
+├── apps/admin/              # Astro 7 + îlots Preact (Cloudflare Workers) — admin UI, projet séparé
 └── .github/workflows/       # CI/CD
 ```
 

@@ -12,7 +12,7 @@ const { title } = Astro.props;
 // n'en a plus besoin — et qui vit maintenant dans son propre projet
 // (apps/admin), déployé séparément. Le thème actif est résolu ici pour
 // injecter les bonnes feuilles de style natives.
-const activeTheme = await getActiveTheme(Astro.locals.runtime.env);
+const activeTheme = await getActiveTheme();
 
 // L'admin est un déploiement Cloudflare Pages distinct : à renseigner via
 // PUBLIC_ADMIN_URL en prod (ex. "https://admin.mondomaine.com"). Par défaut,

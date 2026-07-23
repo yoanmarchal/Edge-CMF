@@ -7,19 +7,17 @@ import { isValidTheme } from '../../lib/themes';
 const keySchema = z.string().min(1).max(64);
 
 /** API JSON /api/settings — réglages clé/valeur (thème actif, etc.). */
-export const GET: APIRoute = async ({ locals, cookies, url }) => {
-  const env = locals.runtime.env;
-  const auth = await requireApiSession(cookies, env, { adminOnly: true });
+export const GET: APIRoute = async ({ cookies, url }) => {
+  const auth = await requireApiSession(cookies, { adminOnly: true });
   if (auth instanceof Response) return auth;
 
   const key = keySchema.safeParse(url.searchParams.get('key'));
   if (!key.success) return Response.json({ success: false, error: 'clé invalide' }, { status: 400 });
-  return proxyResponse(await contentClient(env).api.settings[':key'].$get({ param: { key: key.data } }));
+  return proxyResponse(await contentClient().api.settings[':key'].$get({ param: { key: key.data } }));
 };
 
-export const PUT: APIRoute = async ({ request, locals, cookies }) => {
-  const env = locals.runtime.env;
-  const auth = await requireApiSession(cookies, env, { adminOnly: true });
+export const PUT: APIRoute = async ({ request, cookies }) => {
+  const auth = await requireApiSession(cookies, { adminOnly: true });
   if (auth instanceof Response) return auth;
 
   const body = (await request.json()) as Record<string, unknown>;
@@ -33,7 +31,7 @@ export const PUT: APIRoute = async ({ request, locals, cookies }) => {
   }
 
   return proxyResponse(
-    await contentClient(env).api.settings[':key'].$put({
+    await contentClient().api.settings[':key'].$put({
       param: { key: key.data },
       json: { value: value.data },
     }),

@@ -7,7 +7,7 @@ if (slug === undefined || !/^[a-z0-9-]+$/.test(slug)) {
   return new Response('Page non trouvée', { status: 404 });
 }
 
-const client = contentClient(Astro.locals.runtime.env);
+const client = contentClient();
 const res = await client.api.nodes[':slug'].$get({ param: { slug } });
 
 if (!res.ok) {

@@ -7,23 +7,21 @@ import { requireApiSession } from '../../lib/session';
 const uuid = z.string().uuid();
 
 /** API JSON /api/users — gestion des comptes (adminOnly). */
-export const GET: APIRoute = async ({ locals, cookies }) => {
-  const env = locals.runtime.env;
-  const auth = await requireApiSession(cookies, env, { adminOnly: true });
+export const GET: APIRoute = async ({ cookies }) => {
+  const auth = await requireApiSession(cookies, { adminOnly: true });
   if (auth instanceof Response) return auth;
   return proxyResponse(
-    await authClient(env).users.$get(undefined, { headers: { Authorization: `Bearer ${auth.token}` } }),
+    await authClient().users.$get(undefined, { headers: { Authorization: `Bearer ${auth.token}` } }),
   );
 };
 
-export const POST: APIRoute = async ({ request, locals, cookies }) => {
-  const env = locals.runtime.env;
-  const auth = await requireApiSession(cookies, env, { adminOnly: true });
+export const POST: APIRoute = async ({ request, cookies }) => {
+  const auth = await requireApiSession(cookies, { adminOnly: true });
   if (auth instanceof Response) return auth;
 
   const body = (await request.json()) as Record<string, unknown>;
   const action = body._action;
-  const client = authClient(env);
+  const client = authClient();
   const headers = { Authorization: `Bearer ${auth.token}` };
 
   if (action === 'create') {

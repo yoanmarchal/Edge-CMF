@@ -2,7 +2,7 @@ import type { APIRoute } from 'astro';
 import { loginSchema } from '@edge-cmf/shared-types';
 import { authClient, SESSION_COOKIE } from '../../lib/api';
 
-export const POST: APIRoute = async ({ request, locals, cookies, redirect }) => {
+export const POST: APIRoute = async ({ request, cookies, redirect }) => {
   const form = await request.formData();
   const parsed = loginSchema.safeParse({
     email: form.get('email'),
@@ -13,7 +13,7 @@ export const POST: APIRoute = async ({ request, locals, cookies, redirect }) => 
   }
 
   // Appel RPC interne au micro-service d'authentification
-  const res = await authClient(locals.runtime.env).login.$post({ json: parsed.data });
+  const res = await authClient().login.$post({ json: parsed.data });
   if (!res.ok) {
     return redirect('/?error=identifiants', 303);
   }

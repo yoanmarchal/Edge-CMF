@@ -13,12 +13,11 @@ import { requireApiSession } from '../../lib/session';
 const uuid = z.string().uuid();
 
 /** API JSON /api/types — types de contenu + Field UI (adminOnly). */
-export const GET: APIRoute = async ({ locals, cookies, url }) => {
-  const env = locals.runtime.env;
-  const auth = await requireApiSession(cookies, env);
+export const GET: APIRoute = async ({ cookies, url }) => {
+  const auth = await requireApiSession(cookies);
   if (auth instanceof Response) return auth;
 
-  const client = contentClient(env);
+  const client = contentClient();
   const id = url.searchParams.get('id');
   if (id !== null) {
     const parsedId = machineNameSchema.safeParse(id);
@@ -30,14 +29,13 @@ export const GET: APIRoute = async ({ locals, cookies, url }) => {
   return proxyResponse(await client.api.types.$get({ query: kind.success ? { kind: kind.data } : {} }));
 };
 
-export const POST: APIRoute = async ({ request, locals, cookies }) => {
-  const env = locals.runtime.env;
-  const auth = await requireApiSession(cookies, env, { adminOnly: true });
+export const POST: APIRoute = async ({ request, cookies }) => {
+  const auth = await requireApiSession(cookies, { adminOnly: true });
   if (auth instanceof Response) return auth;
 
   const body = (await request.json()) as Record<string, unknown>;
   const action = body._action;
-  const client = contentClient(env);
+  const client = contentClient();
 
   if (action === 'create-type') {
     const parsed = insertContentTypeSchema.safeParse({

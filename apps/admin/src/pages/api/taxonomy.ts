@@ -7,21 +7,19 @@ import { requireApiSession } from '../../lib/session';
 const uuid = z.string().uuid();
 
 /** API JSON /api/taxonomy — vocabulaires + termes (writeOnly : admin/editor). */
-export const GET: APIRoute = async ({ locals, cookies }) => {
-  const env = locals.runtime.env;
-  const auth = await requireApiSession(cookies, env);
+export const GET: APIRoute = async ({ cookies }) => {
+  const auth = await requireApiSession(cookies);
   if (auth instanceof Response) return auth;
-  return proxyResponse(await contentClient(env).api.vocabularies.$get());
+  return proxyResponse(await contentClient().api.vocabularies.$get());
 };
 
-export const POST: APIRoute = async ({ request, locals, cookies }) => {
-  const env = locals.runtime.env;
-  const auth = await requireApiSession(cookies, env, { writeOnly: true });
+export const POST: APIRoute = async ({ request, cookies }) => {
+  const auth = await requireApiSession(cookies, { writeOnly: true });
   if (auth instanceof Response) return auth;
 
   const body = (await request.json()) as Record<string, unknown>;
   const action = body._action;
-  const client = contentClient(env);
+  const client = contentClient();
 
   if (action === 'create-vocab') {
     const parsed = insertVocabularySchema.safeParse({ id: body.id, label: body.label });

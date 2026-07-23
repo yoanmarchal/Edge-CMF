@@ -8,10 +8,10 @@ export interface Session {
 }
 
 /** Valide le cookie de session auprès de l'Auth Worker (RPC interne). */
-export async function getSessionUser(cookies: AstroCookies, env: Env): Promise<Session | null> {
+export async function getSessionUser(cookies: AstroCookies): Promise<Session | null> {
   const token = cookies.get(SESSION_COOKIE)?.value;
   if (token === undefined || token.length === 0) return null;
-  const res = await authClient(env).validate.$get(undefined, {
+  const res = await authClient().validate.$get(undefined, {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!res.ok) return null;
@@ -32,10 +32,9 @@ export function canWrite(user: UserContext | null | undefined): boolean {
  */
 export async function requireApiSession(
   cookies: AstroCookies,
-  env: Env,
   opts: { adminOnly?: boolean; writeOnly?: boolean } = {},
 ): Promise<Session | Response> {
-  const session = await getSessionUser(cookies, env);
+  const session = await getSessionUser(cookies);
   if (session === null) {
     return Response.json({ success: false, error: 'Non authentifié' }, { status: 401 });
   }

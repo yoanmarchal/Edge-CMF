@@ -2,6 +2,7 @@ node_modules/
 dist/
 .astro/
 .wrangler/
+.wrangler-state/
 .dev.vars
 *.log
 .DS_Store
