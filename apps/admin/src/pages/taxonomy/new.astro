@@ -1,0 +1,13 @@
+---
+import AdminShell from '../../layouts/AdminShell.astro';
+import VocabCreateForm from '../../islands/VocabCreateForm';
+import { getSessionUser, canWrite } from '../../lib/session';
+
+const session = await getSessionUser(Astro.cookies);
+if (session === null) return Astro.redirect('/');
+if (!canWrite(session.user)) return Astro.redirect('/?error=droits');
+---
+
+<AdminShell title="Nouveau vocabulaire — CMF Edge Admin" user={session.user}>
+  <VocabCreateForm client:only="preact" />
+</AdminShell>

@@ -21,8 +21,8 @@ const COPY = {
         <a href="/paragraphs">Paragraphes</a>.
       </p>
     ),
-    idPlaceholder: 'tid',
-    backTo: '/types',
+    newHref: '/types/new',
+    newLabel: '+ Nouveau type de contenu',
   },
   paragraph: {
     title: 'Types de paragraphes',
@@ -32,18 +32,14 @@ const COPY = {
         défini ici apparaît comme bloc ajoutable dans l'éditeur.
       </p>
     ),
-    idPlaceholder: 'pid',
-    backTo: '/paragraphs',
+    newHref: '/paragraphs/new',
+    newLabel: '+ Nouveau type de paragraphe',
   },
 } as const;
 
 export default function TypesList({ kind }: Props) {
   const [types, setTypes] = useState<TypeRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [id, setId] = useState('');
-  const [label, setLabel] = useState('');
-  const [description, setDescription] = useState('');
-  const [open, setOpen] = useState(false);
 
   const copy = COPY[kind];
 
@@ -56,25 +52,17 @@ export default function TypesList({ kind }: Props) {
 
   useEffect(reload, [kind]);
 
-  const create = async (e: Event) => {
-    e.preventDefault();
-    try {
-      await adminApi.post('/api/types', { _action: 'create-type', id, label, description, kind });
-      setId('');
-      setLabel('');
-      setDescription('');
-      setOpen(false);
-      reload();
-    } catch (e) {
-      setError((e as Error).message);
-    }
-  };
-
   return (
     <>
       <h1>{copy.title}</h1>
       {copy.intro}
       {error !== null && <Notice kind="error">Erreur : {error}</Notice>}
+
+      <p class="action-row">
+        <a class="badge" href={copy.newHref}>
+          {copy.newLabel}
+        </a>
+      </p>
 
       {types === null ? (
         <Loading />
@@ -106,36 +94,6 @@ export default function TypesList({ kind }: Props) {
           </tbody>
         </table>
       )}
-
-      <details open={open} onToggle={(e) => setOpen((e.currentTarget as HTMLDetailsElement).open)}>
-        <summary>Nouveau {kind === 'node' ? 'type de contenu' : 'type de paragraphe'}</summary>
-        <form class="stack" onSubmit={create}>
-          <label class="field">
-            Nom machine (a-z, 0-9, _)
-            <input
-              value={id}
-              pattern="[a-z][a-z0-9_]*"
-              maxLength={64}
-              required
-              placeholder={copy.idPlaceholder}
-              onInput={(e) => setId((e.currentTarget as HTMLInputElement).value)}
-            />
-          </label>
-          <label class="field">
-            Libellé
-            <input value={label} maxLength={255} required onInput={(e) => setLabel((e.currentTarget as HTMLInputElement).value)} />
-          </label>
-          <label class="field">
-            Description
-            <input
-              value={description}
-              maxLength={1024}
-              onInput={(e) => setDescription((e.currentTarget as HTMLInputElement).value)}
-            />
-          </label>
-          <button type="submit">Créer</button>
-        </form>
-      </details>
     </>
   );
 }

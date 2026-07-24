@@ -1,0 +1,13 @@
+---
+import AdminShell from '../../layouts/AdminShell.astro';
+import UserCreateForm from '../../islands/UserCreateForm';
+import { getSessionUser } from '../../lib/session';
+
+const session = await getSessionUser(Astro.cookies);
+if (session === null) return Astro.redirect('/');
+if (session.user.role !== 'admin') return Astro.redirect('/?error=droits');
+---
+
+<AdminShell title="Nouvel utilisateur — CMF Edge Admin" user={session.user}>
+  <UserCreateForm client:only="preact" />
+</AdminShell>

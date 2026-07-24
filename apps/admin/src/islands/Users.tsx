@@ -14,9 +14,6 @@ const ROLES: Role[] = ['admin', 'editor', 'viewer'];
 export default function Users({ selfId }: { selfId: string }) {
   const [users, setUsers] = useState<UserRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [role, setRole] = useState<Role>('viewer');
 
   const reload = () => {
     adminApi
@@ -26,19 +23,6 @@ export default function Users({ selfId }: { selfId: string }) {
   };
 
   useEffect(reload, []);
-
-  const create = async (e: Event) => {
-    e.preventDefault();
-    try {
-      await adminApi.post('/api/users', { _action: 'create', email, password, role });
-      setEmail('');
-      setPassword('');
-      setRole('viewer');
-      reload();
-    } catch (e) {
-      setError((e as Error).message);
-    }
-  };
 
   const setUserRole = async (id: string, newRole: Role) => {
     try {
@@ -64,32 +48,11 @@ export default function Users({ selfId }: { selfId: string }) {
       <h1>Utilisateurs</h1>
       {error !== null && <Notice kind="error">Erreur : {error}</Notice>}
 
-      <form class="stack" onSubmit={create}>
-        <h2>Nouvel utilisateur</h2>
-        <label class="field">
-          Email
-          <input type="email" value={email} required onInput={(e) => setEmail((e.currentTarget as HTMLInputElement).value)} />
-        </label>
-        <label class="field">
-          Mot de passe
-          <input
-            type="password"
-            value={password}
-            minLength={8}
-            required
-            onInput={(e) => setPassword((e.currentTarget as HTMLInputElement).value)}
-          />
-        </label>
-        <label class="field">
-          Rôle
-          <select value={role} onChange={(e) => setRole((e.currentTarget as HTMLSelectElement).value as Role)}>
-            {ROLES.map((r) => (
-              <option value={r}>{r}</option>
-            ))}
-          </select>
-        </label>
-        <button type="submit">Créer</button>
-      </form>
+      <p class="action-row">
+        <a class="badge" href="/users/new">
+          + Nouvel utilisateur
+        </a>
+      </p>
 
       {users === null ? (
         <Loading />

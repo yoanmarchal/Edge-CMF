@@ -182,7 +182,6 @@ export default function TypeDetail({ id }: { id: string }) {
         </form>
       </details>
 
-      <hr />
       <button type="button" class="danger" onClick={deleteType}>
         Supprimer ce type
       </button>

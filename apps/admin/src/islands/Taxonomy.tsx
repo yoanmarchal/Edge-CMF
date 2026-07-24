@@ -16,8 +16,6 @@ interface Vocabulary {
 export default function Taxonomy() {
   const [vocabularies, setVocabularies] = useState<Vocabulary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [vid, setVid] = useState('');
-  const [vlabel, setVlabel] = useState('');
 
   const reload = () => {
     adminApi
@@ -27,18 +25,6 @@ export default function Taxonomy() {
   };
 
   useEffect(reload, []);
-
-  const createVocab = async (e: Event) => {
-    e.preventDefault();
-    try {
-      await adminApi.post('/api/taxonomy', { _action: 'create-vocab', id: vid, label: vlabel });
-      setVid('');
-      setVlabel('');
-      reload();
-    } catch (e) {
-      setError((e as Error).message);
-    }
-  };
 
   const deleteVocab = async (id: string) => {
     if (!confirm('Supprimer ce vocabulaire et tous ses termes ?')) return;
@@ -59,43 +45,22 @@ export default function Taxonomy() {
     }
   };
 
-  const createTerm = async (vocabularyId: string, label: string, slug: string) => {
-    try {
-      await adminApi.post('/api/taxonomy', { _action: 'create-term', vocabularyId, label, slug });
-      reload();
-    } catch (e) {
-      setError((e as Error).message);
-    }
-  };
 
   return (
     <>
       <h1>Taxonomie</h1>
       {error !== null && <Notice kind="error">Erreur : {error}</Notice>}
 
-      <form class="stack" onSubmit={createVocab}>
-        <h2>Nouveau vocabulaire</h2>
-        <label class="field">
-          Nom machine
-          <input
-            value={vid}
-            pattern="[a-z][a-z0-9_]*"
-            maxLength={64}
-            required
-            onInput={(e) => setVid((e.currentTarget as HTMLInputElement).value)}
-          />
-        </label>
-        <label class="field">
-          Libellé
-          <input value={vlabel} maxLength={255} required onInput={(e) => setVlabel((e.currentTarget as HTMLInputElement).value)} />
-        </label>
-        <button type="submit">Créer</button>
-      </form>
+      <p class="action-row">
+        <a class="badge" href="/taxonomy/new">
+          + Nouveau vocabulaire
+        </a>
+      </p>
 
       {vocabularies === null ? (
         <Loading />
       ) : (
-        vocabularies.map((v) => <VocabSection v={v} onDeleteVocab={deleteVocab} onDeleteTerm={deleteTerm} onCreateTerm={createTerm} />)
+        vocabularies.map((v) => <VocabSection v={v} onDeleteVocab={deleteVocab} onDeleteTerm={deleteTerm} />)
       )}
     </>
   );
@@ -105,24 +70,21 @@ function VocabSection({
   v,
   onDeleteVocab,
   onDeleteTerm,
-  onCreateTerm,
 }: {
   v: Vocabulary;
   onDeleteVocab: (id: string) => void;
   onDeleteTerm: (id: string) => void;
-  onCreateTerm: (vocabularyId: string, label: string, slug: string) => void;
 }) {
-  const [label, setLabel] = useState('');
-  const [slug, setSlug] = useState('');
-
   return (
     <section>
-      <h2>
-        {v.label} <code class="muted">{v.id}</code>{' '}
-        <button type="button" class="danger" onClick={() => onDeleteVocab(v.id)}>
-          Supprimer
+      <div class="section-head">
+        <h2>
+          {v.label} <code class="muted">{v.id}</code>
+        </h2>
+        <button type="button" class="badge danger" onClick={() => onDeleteVocab(v.id)}>
+          Supprimer le vocabulaire
         </button>
-      </h2>
+      </div>
 
       <table>
         <thead>
@@ -147,25 +109,11 @@ function VocabSection({
         </tbody>
       </table>
 
-      <form
-        class="stack"
-        onSubmit={(e) => {
-          e.preventDefault();
-          onCreateTerm(v.id, label, slug);
-          setLabel('');
-          setSlug('');
-        }}
-      >
-        <label class="field">
-          Nouveau terme
-          <input value={label} maxLength={255} required onInput={(e) => setLabel((e.currentTarget as HTMLInputElement).value)} />
-        </label>
-        <label class="field">
-          Slug
-          <input value={slug} pattern="[a-z0-9-]+" required onInput={(e) => setSlug((e.currentTarget as HTMLInputElement).value)} />
-        </label>
-        <button type="submit">Ajouter</button>
-      </form>
+      <p class="action-row">
+        <a class="badge" href={`/taxonomy/${v.id}/new`}>
+          + Nouveau terme
+        </a>
+      </p>
     </section>
   );
 }
