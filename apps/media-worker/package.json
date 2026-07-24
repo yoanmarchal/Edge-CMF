@@ -1,0 +1,26 @@
+{
+  "name": "@edge-cmf/media-worker",
+  "version": "3.0.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "dev": "wrangler dev --port 8704 --inspector-port 9234 --persist-to ../../.wrangler-state",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@edge-cmf/shared-types": "*",
+    "@hono/zod-validator": "^0.4.2",
+    "hono": "^4.6.16",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250101.0",
+    "typescript": "^5.7.3",
+    "wrangler": "4.114.0"
+  }
+}

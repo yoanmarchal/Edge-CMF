@@ -23,7 +23,10 @@ export default defineConfig({
     // sharp n'existe pas dans le runtime Workers : optimisation des images
     // au build uniquement (supprime sharp du bundle serveur)
     imageService: 'compile',
-    auxiliaryWorkers: [{ configPath: '../content-worker/wrangler.toml' }],
+    auxiliaryWorkers: [
+      { configPath: '../content-worker/wrangler.toml' },
+      { configPath: '../media-worker/wrangler.toml' },
+    ],
     persistState: { path: '../../.wrangler-state' },
   }),
 });

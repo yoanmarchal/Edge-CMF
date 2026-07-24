@@ -15,8 +15,9 @@ const FIELD_TYPES: { value: FieldType; label: string }[] = [
   { value: 'number', label: 'Nombre' },
   { value: 'boolean', label: 'Booléen' },
   { value: 'date', label: 'Date' },
-  { value: 'select', label: 'Liste (options)' },
+  { value: 'select', label: 'Sélection (options)' },
   { value: 'reference', label: 'Référence (UUID)' },
+  { value: 'media', label: 'Média (bibliothèque)' },
 ];
 
 export default function TypeDetail({ id }: { id: string }) {
@@ -28,6 +29,7 @@ export default function TypeDetail({ id }: { id: string }) {
   const [fieldType, setFieldType] = useState<FieldType>('text');
   const [options, setOptions] = useState('');
   const [required, setRequired] = useState(false);
+  const [multiple, setMultiple] = useState(false);
   const [weight, setWeight] = useState(0);
 
   const reload = () => {
@@ -50,12 +52,14 @@ export default function TypeDetail({ id }: { id: string }) {
         fieldType,
         options,
         required,
+        multiple,
         weight,
       });
       setName('');
       setFlabel('');
       setOptions('');
       setRequired(false);
+      setMultiple(false);
       setWeight(0);
       reload();
     } catch (e) {
@@ -122,7 +126,10 @@ export default function TypeDetail({ id }: { id: string }) {
                   <code>{f.name}</code>
                 </td>
                 <td>{f.label}</td>
-                <td>{f.fieldType}</td>
+                <td>
+                  {f.fieldType}
+                  {f.settings.multiple === true && <span class="badge">multiple</span>}
+                </td>
                 <td>{f.required ? 'oui' : 'non'}</td>
                 <td class="muted">{f.settings.options?.join(', ') ?? ''}</td>
                 <td>{f.weight}</td>
@@ -173,6 +180,10 @@ export default function TypeDetail({ id }: { id: string }) {
           <label class="field-inline">
             <input type="checkbox" checked={required} onChange={(e) => setRequired((e.currentTarget as HTMLInputElement).checked)} />{' '}
             Requis
+          </label>
+          <label class="field-inline">
+            <input type="checkbox" checked={multiple} onChange={(e) => setMultiple((e.currentTarget as HTMLInputElement).checked)} />{' '}
+            Multiple — plusieurs valeurs itérables (liste)
           </label>
           <label class="field">
             Poids

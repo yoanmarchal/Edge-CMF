@@ -3,6 +3,7 @@ import { env } from 'cloudflare:workers';
 // Importation exclusive des TYPES : le code métier back n'alourdit pas l'admin (cahier v3 §4.2)
 import type { ContentAPI } from '@edge-cmf/content-worker';
 import type { AuthAPI } from '@edge-cmf/auth-worker';
+import type { MediaAPI } from '@edge-cmf/media-worker';
 
 /**
  * Clients RPC branchés directement sur la fonction fetch des Service Bindings.
@@ -21,6 +22,20 @@ export function authClient() {
   return hc<AuthAPI>('http://interne', {
     fetch: env.AUTH_WORKER.fetch.bind(env.AUTH_WORKER),
   });
+}
+
+export function mediaClient() {
+  return hc<MediaAPI>('http://interne', {
+    fetch: env.MEDIA_WORKER.fetch.bind(env.MEDIA_WORKER),
+  });
+}
+
+/**
+ * Fetch brut vers le media-worker — pour les cas non couverts par le client
+ * RPC typé : repropagation d'un upload multipart et streaming de fichiers.
+ */
+export function mediaFetch(path: string, init?: RequestInit): Promise<Response> {
+  return env.MEDIA_WORKER.fetch(`http://interne${path}`, init);
 }
 
 export const SESSION_COOKIE = 'cmf_session';

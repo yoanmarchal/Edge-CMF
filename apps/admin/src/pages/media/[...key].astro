@@ -1,0 +1,15 @@
+---
+import AdminShell from '../../layouts/AdminShell.astro';
+import MediaDetail from '../../islands/MediaDetail';
+import { getSessionUser, canWrite } from '../../lib/session';
+
+const session = await getSessionUser(Astro.cookies);
+if (session === null) return Astro.redirect('/');
+
+const { key } = Astro.params;
+if (key === undefined || key.length === 0) return Astro.redirect('/media');
+---
+
+<AdminShell title="Média — CMF Edge Admin" user={session.user}>
+  <MediaDetail client:only="preact" mediaKey={key} canWrite={canWrite(session.user)} />
+</AdminShell>

@@ -29,6 +29,7 @@ export const fieldTypeEnum = z.enum([
   'date',
   'select',
   'reference',
+  'media',
 ]);
 export type FieldType = z.infer<typeof fieldTypeEnum>;
 
@@ -40,6 +41,12 @@ export const fieldSettingsSchema = z
     targetType: machineNameSchema.optional(),
     min: z.number().optional(),
     max: z.number().optional(),
+    /**
+     * Cardinalité multiple (équivalent "unlimited values" de Drupal) :
+     * la valeur du champ devient un tableau du type de base, itérable
+     * dans les nœuds comme dans les paragraphes.
+     */
+    multiple: z.boolean().optional(),
   })
   .default({});
 export type FieldSettings = z.infer<typeof fieldSettingsSchema>;
@@ -131,6 +138,14 @@ export function buildFieldValuesSchema(
       case 'reference':
         s = z.string().uuid();
         break;
+      case 'media':
+        // Chemin public d'un média R2 : `/media/<clé>`
+        s = z.string().regex(/^\/media\/.+/).max(512);
+        break;
+    }
+    if (f.settings.multiple === true) {
+      const arr = z.array(s);
+      s = f.required ? arr.min(1) : arr;
     }
     shape[f.name] = f.required ? s : s.optional();
   }
@@ -235,6 +250,55 @@ export const jwtPayloadSchema = z.object({
   iat: z.number().int(),
 });
 export type JwtPayload = z.infer<typeof jwtPayloadSchema>;
+
+// ---------------------------------------------------------------------------
+// Médias (media-worker — stockage R2, métadonnées en customMetadata)
+// ---------------------------------------------------------------------------
+
+/** Types MIME acceptés à l'upload, groupés par famille pour l'UI. */
+export const MEDIA_MIME_TYPES = {
+  image: ['image/jpeg', 'image/png', 'image/webp', 'image/avif', 'image/gif', 'image/svg+xml'],
+  document: ['application/pdf'],
+  audio: ['audio/mpeg', 'audio/ogg', 'audio/wav'],
+  video: ['video/mp4', 'video/webm'],
+} as const;
+
+export type MediaKind = keyof typeof MEDIA_MIME_TYPES;
+
+export const ALL_MEDIA_MIME_TYPES: readonly string[] = Object.values(MEDIA_MIME_TYPES).flat();
+
+/** 50 Mo — sous la limite de corps de requête Cloudflare (100 Mo). */
+export const MEDIA_MAX_BYTES = 50 * 1024 * 1024;
+
+export function mediaKindOf(contentType: string): MediaKind | null {
+  for (const [kind, mimes] of Object.entries(MEDIA_MIME_TYPES)) {
+    if ((mimes as readonly string[]).includes(contentType)) return kind as MediaKind;
+  }
+  return null;
+}
+
+export const listMediaQuerySchema = z.object({
+  cursor: z.string().optional(),
+  limit: z.coerce.number().int().min(1).max(200).default(60),
+});
+
+export const mediaAltSchema = z.object({ alt: z.string().max(512) });
+
+/** Un objet R2 hydraté pour la bibliothèque de médias. */
+export interface MediaItem {
+  readonly key: string;
+  readonly size: number;
+  readonly uploaded: string; // ISO 8601
+  readonly contentType: string;
+  readonly kind: MediaKind;
+  readonly originalName: string;
+  readonly alt: string;
+}
+
+export interface MediaListResult {
+  readonly data: MediaItem[];
+  readonly cursor: string | null;
+}
 
 // ---------------------------------------------------------------------------
 // Enveloppes de réponse API communes

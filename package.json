@@ -8,15 +8,16 @@
     "apps/*"
   ],
   "scripts": {
-    "dev": "npm run db:migrate:local && concurrently -k -n content,auth,gateway,front,admin -c blue,magenta,yellow,green,cyan \"npm run dev:content\" \"npm run dev:auth\" \"wait-on -t 60000 tcp:8701 tcp:8702 && npm run dev:gateway\" \"wait-on -t 90000 tcp:8703 && npm run dev:front\" \"wait-on -t 90000 tcp:8703 && npm run dev:admin\"",
+    "dev": "npm run db:migrate:local && concurrently -k -n content,auth,media,gateway,front,admin -c blue,magenta,white,yellow,green,cyan \"npm run dev:content\" \"npm run dev:auth\" \"npm run dev:media\" \"wait-on -t 60000 tcp:8701 tcp:8702 && npm run dev:gateway\" \"wait-on -t 90000 tcp:8703 tcp:8704 && npm run dev:front\" \"wait-on -t 90000 tcp:8703 tcp:8704 && npm run dev:admin\"",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "build": "npm run build --workspaces --if-present",
     "dev:content": "npm run dev -w @edge-cmf/content-worker",
     "dev:auth": "npm run dev -w @edge-cmf/auth-worker",
+    "dev:media": "npm run dev -w @edge-cmf/media-worker",
     "dev:gateway": "npm run dev -w @edge-cmf/gateway-worker",
     "dev:front": "npm run dev -w @edge-cmf/frontend",
     "dev:admin": "npm run dev -w @edge-cmf/admin",
-    "deploy:workers": "npm run deploy -w @edge-cmf/content-worker && npm run deploy -w @edge-cmf/auth-worker && npm run deploy -w @edge-cmf/gateway-worker",
+    "deploy:workers": "npm run deploy -w @edge-cmf/content-worker && npm run deploy -w @edge-cmf/auth-worker && npm run deploy -w @edge-cmf/media-worker && npm run deploy -w @edge-cmf/gateway-worker",
     "deploy:front": "npm run deploy -w @edge-cmf/frontend",
     "deploy:admin": "npm run deploy -w @edge-cmf/admin",
     "db:migrate:local": "npm run db:migrate:local -w @edge-cmf/content-worker && npm run db:migrate:local -w @edge-cmf/auth-worker",

@@ -71,6 +71,9 @@ export const POST: APIRoute = async ({ request, cookies }) => {
         : undefined;
     const fieldType = fieldTypeEnum.safeParse(body.fieldType);
     if (!fieldType.success) return Response.json({ success: false, error: 'validation' }, { status: 400 });
+    const settings: Record<string, unknown> = {};
+    if (fieldType.data === 'select' && options !== undefined) settings.options = options;
+    if (body.multiple === true) settings.multiple = true;
     const parsed = insertFieldSchema.safeParse({
       id: crypto.randomUUID(),
       contentTypeId: body.contentTypeId,
@@ -78,7 +81,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       label: body.label,
       fieldType: fieldType.data,
       required: body.required === true,
-      settings: fieldType.data === 'select' && options !== undefined ? { options } : {},
+      settings,
       weight: Number(body.weight ?? 0),
     });
     if (!parsed.success) return Response.json({ success: false, error: parsed.error.message }, { status: 400 });

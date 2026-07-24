@@ -255,6 +255,209 @@
     }
   }
 
+  /* Les images ne débordent jamais de leur conteneur. */
+  .admin-main img {
+    max-width: 100%;
+    height: auto;
+  }
+
+  /* Bibliothèque de médias */
+  .admin-main .media-grid {
+    grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+  }
+  .admin-main .media-card {
+    border: 1px solid var(--admin-border);
+    border-radius: var(--admin-radius);
+    background: var(--admin-surface);
+    padding: 0.75rem;
+    display: grid;
+    /* Piste explicite bornée : sans ça, la colonne implicite `auto` se cale
+       sur la largeur NATURELLE de l'image (le width:100% de l'img est
+       cyclique pour le calcul de piste) et déborde de la carte. */
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.4rem;
+    align-content: start;
+    /* Un item de grille a min-width:auto par défaut : une image large
+       forcerait la colonne à s'élargir au-delà de la carte. */
+    min-width: 0;
+    overflow: hidden;
+  }
+  .admin-main .media-thumb {
+    width: 100%;
+    min-width: 0;
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
+    border-radius: calc(var(--admin-radius) - 2px);
+    background: var(--admin-bg);
+  }
+  .admin-main .media-tile {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--admin-muted);
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    font-size: 0.85em;
+    border: 1px dashed var(--admin-border);
+  }
+  .admin-main .media-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Carte cliquable → fiche média */
+  .admin-main a.media-card {
+    color: inherit;
+    text-decoration: none;
+  }
+  .admin-main a.media-card:hover {
+    border-color: var(--admin-accent);
+  }
+
+  /* Fiche média (route /media/<clé>) */
+  .admin-main .media-detail {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(16rem, 1fr);
+    gap: 1.5rem;
+    align-items: start;
+  }
+  @media (max-width: 60rem) {
+    .admin-main .media-detail {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+  .admin-main .media-detail-preview img,
+  .admin-main .media-detail-preview video {
+    width: 100%;
+    border: 1px solid var(--admin-border);
+    border-radius: var(--admin-radius);
+    background: var(--admin-surface);
+  }
+  .admin-main .media-detail-preview audio {
+    width: 100%;
+  }
+  .admin-main .media-meta {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.35rem 1rem;
+    margin: 0;
+  }
+  .admin-main .media-meta dt {
+    color: var(--admin-muted);
+  }
+  .admin-main .media-meta dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+
+  /* Champ à cardinalité multiple : une ligne par valeur + retrait */
+  .admin-main .field-multi-item {
+    display: flex;
+    align-items: start;
+    gap: 0.5rem;
+  }
+  .admin-main .field-multi-item > :first-child {
+    flex: 1;
+    min-width: 0;
+  }
+
+  /* Sélecteur de média (champs `media` de la Field API) */
+  .admin-main .media-picker {
+    display: grid;
+    gap: 0.5rem;
+  }
+  .admin-main .media-picker-current {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .admin-main .media-picker-current img {
+    width: 3.5rem;
+    aspect-ratio: 1;
+    object-fit: cover;
+    border-radius: calc(var(--admin-radius) - 2px);
+    border: 1px solid var(--admin-border);
+  }
+  /* Modale de sélection — <dialog> natif, grande, centrée par le navigateur */
+  .admin-main .media-modal {
+    width: min(64rem, 92vw);
+    max-height: min(46rem, 85vh);
+    margin: auto;
+    padding: 1rem 1.25rem;
+    border: 1px solid var(--admin-border);
+    border-radius: var(--admin-radius);
+    background: var(--admin-surface);
+    color: var(--admin-fg);
+    box-shadow: 0 20px 60px rgb(0 0 0 / 0.35);
+  }
+  .admin-main .media-modal::backdrop {
+    background: rgb(0 0 0 / 0.45);
+    backdrop-filter: blur(2px);
+  }
+  .admin-main .media-modal-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 0.75rem;
+  }
+  .admin-main .media-modal-head h2 {
+    margin: 0;
+    font-size: 1.1rem;
+  }
+  .admin-main .media-modal-body {
+    max-height: calc(min(46rem, 85vh) - 6rem);
+    overflow-y: auto;
+  }
+  .admin-main .media-picker-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+    gap: 0.6rem;
+  }
+  .admin-main .media-picker-item {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.25rem;
+    padding: 0.35rem;
+    background: none;
+    border: 1px solid var(--admin-border);
+    border-radius: calc(var(--admin-radius) - 2px);
+    color: inherit;
+    cursor: pointer;
+    min-width: 0;
+    overflow: hidden;
+  }
+  .admin-main .media-picker-item:hover {
+    border-color: var(--admin-accent);
+    background: none;
+  }
+  .admin-main .media-picker-item img {
+    width: 100%;
+    aspect-ratio: 1;
+    object-fit: cover;
+    border-radius: 3px;
+  }
+  .admin-main .media-picker-kind {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    aspect-ratio: 1;
+    color: var(--admin-muted);
+    text-transform: uppercase;
+    font-size: 0.75em;
+    border: 1px dashed var(--admin-border);
+    border-radius: 3px;
+  }
+  .admin-main .media-picker-name {
+    font-size: 0.75em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   /* Mention discrète sur la carte du thème actif — pas un bouton. */
   .admin-main .theme-active {
     color: var(--admin-accent);
@@ -372,6 +575,42 @@
        et des blocs ajoutés dynamiquement (éditeur de paragraphes). */
     .admin-main :is(table, form.stack, section, .paragraph-item) {
       animation: admin-appear 0.18s ease-out both;
+    }
+
+    /* Modale médias : fondu + léger zoom à l'ouverture, backdrop en fondu.
+       100% natif : transition depuis @starting-style, `allow-discrete`
+       pour animer display/overlay du <dialog>. */
+    .admin-main .media-modal {
+      opacity: 0;
+      transform: translateY(10px) scale(0.98);
+      transition:
+        opacity 0.18s ease,
+        transform 0.18s ease,
+        overlay 0.18s ease allow-discrete,
+        display 0.18s ease allow-discrete;
+    }
+    .admin-main .media-modal[open] {
+      opacity: 1;
+      transform: none;
+    }
+    .admin-main .media-modal::backdrop {
+      opacity: 0;
+      transition:
+        opacity 0.18s ease,
+        overlay 0.18s ease allow-discrete,
+        display 0.18s ease allow-discrete;
+    }
+    .admin-main .media-modal[open]::backdrop {
+      opacity: 1;
+    }
+    @starting-style {
+      .admin-main .media-modal[open] {
+        opacity: 0;
+        transform: translateY(10px) scale(0.98);
+      }
+      .admin-main .media-modal[open]::backdrop {
+        opacity: 0;
+      }
     }
   }
 

@@ -1,5 +1,6 @@
 import type { FieldDef } from '@edge-cmf/shared-types';
 import type { JSX } from 'preact';
+import MediaPicker from './MediaPicker';
 
 interface Props {
   def: FieldDef;
@@ -7,37 +8,50 @@ interface Props {
   onChange: (name: string, value: unknown) => void;
 }
 
-/** Équivalent Preact de components/FieldInput.astro — champ dynamique de la Field API. */
-export default function FieldInput({ def, value, onChange }: Props) {
-  const str = value === undefined || value === null ? '' : String(value);
-  const id = `field_${def.name}`;
+/** Valeur par défaut d'un item ajouté à un champ multiple. */
+function emptyItem(def: FieldDef): unknown {
+  if (def.fieldType === 'boolean') return false;
+  if (def.fieldType === 'number') return 0;
+  return '';
+}
 
-  let control: JSX.Element;
+/** Contrôle d'une valeur UNITAIRE — réutilisé tel quel par le mode multiple. */
+function SingleControl({
+  def,
+  id,
+  value,
+  onValue,
+}: {
+  def: FieldDef;
+  id: string;
+  value: unknown;
+  onValue: (v: unknown) => void;
+}): JSX.Element {
+  const str = value === undefined || value === null ? '' : String(value);
+
   switch (def.fieldType) {
     case 'textarea':
     case 'richtext':
-      control = (
+      return (
         <textarea
           id={id}
           rows={5}
           required={def.required}
           value={str}
-          onInput={(e) => onChange(def.name, (e.currentTarget as HTMLTextAreaElement).value)}
+          onInput={(e) => onValue((e.currentTarget as HTMLTextAreaElement).value)}
         />
       );
-      break;
     case 'boolean':
-      control = (
+      return (
         <input
           id={id}
           type="checkbox"
           checked={value === true}
-          onChange={(e) => onChange(def.name, (e.currentTarget as HTMLInputElement).checked)}
+          onChange={(e) => onValue((e.currentTarget as HTMLInputElement).checked)}
         />
       );
-      break;
     case 'number':
-      control = (
+      return (
         <input
           id={id}
           type="number"
@@ -46,57 +60,95 @@ export default function FieldInput({ def, value, onChange }: Props) {
           required={def.required}
           min={def.settings.min}
           max={def.settings.max}
-          onInput={(e) => onChange(def.name, Number((e.currentTarget as HTMLInputElement).value))}
+          onInput={(e) => onValue(Number((e.currentTarget as HTMLInputElement).value))}
         />
       );
-      break;
     case 'date':
-      control = (
+      return (
         <input
           id={id}
           type="date"
           value={str}
           required={def.required}
-          onInput={(e) => onChange(def.name, (e.currentTarget as HTMLInputElement).value)}
+          onInput={(e) => onValue((e.currentTarget as HTMLInputElement).value)}
         />
       );
-      break;
     case 'select':
-      control = (
-        <select
-          id={id}
-          required={def.required}
-          value={str}
-          onChange={(e) => onChange(def.name, (e.currentTarget as HTMLSelectElement).value)}
-        >
+      return (
+        <select id={id} required={def.required} value={str} onChange={(e) => onValue((e.currentTarget as HTMLSelectElement).value)}>
           {!def.required && <option value="">—</option>}
           {(def.settings.options ?? []).map((opt) => (
             <option value={opt}>{opt}</option>
           ))}
         </select>
       );
-      break;
     case 'reference':
-      control = (
+      return (
         <input
           id={id}
           value={str}
           placeholder="UUID du nœud référencé"
           required={def.required}
-          onInput={(e) => onChange(def.name, (e.currentTarget as HTMLInputElement).value)}
+          onInput={(e) => onValue((e.currentTarget as HTMLInputElement).value)}
         />
       );
-      break;
+    case 'media':
+      return <MediaPicker value={str} clearable={!def.required} onValue={onValue} />;
     default:
-      control = (
+      return (
         <input
           id={id}
           value={str}
           maxLength={255}
           required={def.required}
-          onInput={(e) => onChange(def.name, (e.currentTarget as HTMLInputElement).value)}
+          onInput={(e) => onValue((e.currentTarget as HTMLInputElement).value)}
         />
       );
+  }
+}
+
+/** Équivalent Preact de components/FieldInput.astro — champ dynamique de la Field API. */
+export default function FieldInput({ def, value, onChange }: Props) {
+  const id = `field_${def.name}`;
+
+  // Cardinalité multiple : la valeur est un tableau du type de base,
+  // avec ajout/retrait d'items (équivalent "unlimited values" de Drupal).
+  if (def.settings.multiple === true) {
+    const items: unknown[] = Array.isArray(value) ? value : [];
+    const setItems = (next: unknown[]) => onChange(def.name, next.length > 0 ? next : undefined);
+
+    return (
+      <div class="field">
+        <span>
+          {def.label}
+          {def.required && <span class="muted"> (requis)</span>} <span class="badge">multiple</span>
+        </span>
+        {items.map((item, i) => (
+          <div class="field-multi-item" key={i}>
+            <SingleControl
+              def={def}
+              id={`${id}_${i}`}
+              value={item}
+              onValue={(v) => {
+                if (v === undefined) {
+                  setItems(items.filter((_, idx) => idx !== i));
+                } else {
+                  setItems(items.map((it, idx) => (idx === i ? v : it)));
+                }
+              }}
+            />
+            <button type="button" class="badge danger" title="Retirer cette valeur" onClick={() => setItems(items.filter((_, idx) => idx !== i))}>
+              ×
+            </button>
+          </div>
+        ))}
+        <p class="action-row">
+          <button type="button" class="badge" onClick={() => setItems([...items, emptyItem(def)])}>
+            + Ajouter une valeur
+          </button>
+        </p>
+      </div>
+    );
   }
 
   return (
@@ -105,7 +157,7 @@ export default function FieldInput({ def, value, onChange }: Props) {
         {def.label}
         {def.required && <span class="muted"> (requis)</span>}
       </span>
-      {control}
+      <SingleControl def={def} id={id} value={value} onValue={(v) => onChange(def.name, v)} />
     </label>
   );
 }

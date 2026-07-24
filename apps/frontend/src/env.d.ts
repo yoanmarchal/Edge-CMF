@@ -18,6 +18,7 @@ interface InternalFetcher {
 declare namespace Cloudflare {
   interface Env {
     readonly CONTENT_WORKER: InternalFetcher;
+    readonly MEDIA_WORKER: InternalFetcher;
   }
 }
 

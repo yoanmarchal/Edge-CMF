@@ -22,6 +22,7 @@
   "devDependencies": {
     "@edge-cmf/auth-worker": "*",
     "@edge-cmf/content-worker": "*",
+    "@edge-cmf/media-worker": "*",
     "typescript": "^5.7.3",
     "wrangler": "4.114.0"
   }

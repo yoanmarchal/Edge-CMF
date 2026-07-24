@@ -1,0 +1,17 @@
+# Worker Médias — SERVICE INTERNE UNIQUEMENT
+# Même philosophie que content-worker (cahier v3 §3) : aucune route publique.
+# Joignable uniquement via Service Binding depuis l'admin (upload/gestion)
+# et le front public (lecture seule, /media/*).
+name = "media-worker"
+main = "src/index.ts"
+compatibility_date = "2025-06-01"
+
+# Pas de [routes], pas de workers_dev : invisible depuis Internet.
+workers_dev = false
+
+# Stockage objet R2 — source de vérité unique des médias : le binaire ET
+# ses métadonnées (alt, nom d'origine) via customMetadata. Zéro D1 à
+# synchroniser. Créer le bucket : `wrangler r2 bucket create edge-cmf-media`
+[[r2_buckets]]
+binding = "MEDIA"
+bucket_name = "edge-cmf-media"

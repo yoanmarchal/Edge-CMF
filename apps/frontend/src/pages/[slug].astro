@@ -1,5 +1,6 @@
 ---
 import Base from '../layouts/Base.astro';
+import FieldValue from '../components/FieldValue.astro';
 import { contentClient } from '../lib/api';
 
 const { slug } = Astro.params;
@@ -34,7 +35,9 @@ const fieldEntries = Object.entries(node.fields);
         {fieldEntries.map(([name, value]) => (
           <>
             <dt>{name}</dt>
-            <dd>{String(value)}</dd>
+            <dd>
+              <FieldValue value={value} />
+            </dd>
           </>
         ))}
       </dl>
@@ -53,10 +56,16 @@ const fieldEntries = Object.entries(node.fields);
           const [primary, ...rest] = entries;
           return (
             <section class="paragraph" data-paragraph-type={p.type}>
-              {primary && <p class="paragraph-body">{String(primary[1])}</p>}
+              {primary && (
+                <p class="paragraph-body">
+                  <FieldValue value={primary[1]} />
+                </p>
+              )}
               {rest.length > 0 && (
                 <p class="paragraph-meta">
-                  {rest.map(([, value]) => String(value)).join(' — ')}
+                  {rest.map(([, value]) => (
+                    <FieldValue value={value} />
+                  ))}
                 </p>
               )}
             </section>

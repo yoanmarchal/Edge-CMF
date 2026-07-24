@@ -1,0 +1,32 @@
+---
+/**
+ * Rendu d'une valeur de champ de la Field API, agnostique du bundle :
+ * - tableau (champ à cardinalité multiple) → itération sur chaque item ;
+ * - chemin média `/media/…` → <img> si image, lien de téléchargement sinon ;
+ * - tout le reste → texte brut.
+ */
+interface Props {
+  value: unknown;
+}
+const { value } = Astro.props;
+
+const IMAGE_RE = /\.(jpe?g|png|webp|avif|gif|svg)$/i;
+const isMedia = (v: unknown): v is string => typeof v === 'string' && v.startsWith('/media/');
+const items: unknown[] = Array.isArray(value) ? value : [value];
+---
+
+{
+  items.map((item) =>
+    isMedia(item) ? (
+      IMAGE_RE.test(item) ? (
+        <img class="field-media" src={item} alt="" loading="lazy" />
+      ) : (
+        <a class="field-media-link" href={item}>
+          Télécharger le fichier
+        </a>
+      )
+    ) : (
+      <span class="field-value">{String(item)}</span>
+    ),
+  )
+}

@@ -16,3 +16,7 @@ service = "content-worker"
 [[services]]
 binding = "AUTH_WORKER"
 service = "auth-worker"
+
+[[services]]
+binding = "MEDIA_WORKER"
+service = "media-worker"

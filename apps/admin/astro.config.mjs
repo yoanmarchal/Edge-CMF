@@ -28,6 +28,7 @@ export default defineConfig({
     auxiliaryWorkers: [
       { configPath: '../content-worker/wrangler.toml' },
       { configPath: '../auth-worker/wrangler.toml' },
+      { configPath: '../media-worker/wrangler.toml' },
     ],
     persistState: { path: '../../.wrangler-state' },
   }),

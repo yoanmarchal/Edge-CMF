@@ -19,10 +19,24 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return body as T;
 }
 
+/** Variante multipart (upload de fichiers) : le navigateur pose lui-même
+ *  le content-type avec la boundary — surtout ne pas le forcer. */
+async function requestForm<T>(path: string, form: FormData): Promise<T> {
+  const res = await fetch(path, { method: 'POST', credentials: 'same-origin', body: form });
+  const body: unknown = await res.json().catch(() => null);
+  const record = body !== null && typeof body === 'object' ? (body as Record<string, unknown>) : {};
+  if (!res.ok || record.success === false) {
+    const message = typeof record.error === 'string' ? record.error : `Erreur ${res.status}`;
+    throw new Error(message);
+  }
+  return body as T;
+}
+
 export const adminApi = {
   get: <T>(path: string): Promise<T> => request<T>(path),
   post: <T>(path: string, json: unknown): Promise<T> =>
     request<T>(path, { method: 'POST', body: JSON.stringify(json) }),
+  postForm: <T>(path: string, form: FormData): Promise<T> => requestForm<T>(path, form),
   put: <T>(path: string, json: unknown): Promise<T> =>
     request<T>(path, { method: 'PUT', body: JSON.stringify(json) }),
   delete: <T>(path: string): Promise<T> => request<T>(path, { method: 'DELETE' }),

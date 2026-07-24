@@ -15,3 +15,8 @@ compatibility_flags = ["nodejs_compat"]
 [[services]]
 binding = "CONTENT_WORKER"
 service = "content-worker"
+
+# Diffusion publique des médias R2 via /media/* (lecture seule).
+[[services]]
+binding = "MEDIA_WORKER"
+service = "media-worker"
