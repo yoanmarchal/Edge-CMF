@@ -255,6 +255,17 @@
     }
   }
 
+  /* Mention discrète sur la carte du thème actif — pas un bouton. */
+  .admin-main .theme-active {
+    color: var(--admin-accent);
+    font-size: 0.9em;
+    font-weight: 600;
+    /* Aligne la hauteur sur le bouton "Activer" des autres cartes pour
+       éviter tout décalage vertical dans la grille. */
+    padding-block: 0.4rem;
+    border: 1px solid transparent;
+  }
+
   .admin-main .field {
     display: grid;
     gap: 0.35rem;

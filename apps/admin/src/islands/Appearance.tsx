@@ -47,7 +47,7 @@ export default function Appearance() {
               <strong>{t.label}</strong>
               <p class="muted">{t.description}</p>
               {t.id === active ? (
-                <span class="badge">Actif</span>
+                <span class="theme-active">✓ Thème actif</span>
               ) : (
                 <button type="button" disabled={saving} onClick={() => activate(t.id)}>
                   Activer
