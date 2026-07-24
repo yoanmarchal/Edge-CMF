@@ -82,14 +82,27 @@ app.use('/v1/*', async (c, next) => {
 // ---------------------------------------------------------------------------
 // Middleware 3 : cache Edge des GET (version partagée avec le content-worker)
 // ---------------------------------------------------------------------------
+/**
+ * Tags de cache dont dépend chaque route publique (mêmes clés KV que le
+ * content-worker : `cache-tag:<tag>`, invalidation par version à la Drupal).
+ */
+function readTags(pathname: string): readonly string[] {
+  if (pathname.startsWith('/v1/nodes')) return ['content', 'taxonomy'];
+  if (pathname.startsWith('/v1/types')) return ['types'];
+  if (pathname.startsWith('/v1/vocabularies')) return ['taxonomy'];
+  return ['content', 'types', 'taxonomy', 'settings'];
+}
+
 app.use('/v1/*', async (c, next) => {
   if (c.req.method !== 'GET') {
     await next();
     return;
   }
-  const version = (await c.env.CACHE_KV.get('content-cache-version')) ?? '0';
   const { pathname, search } = new URL(c.req.url);
-  const cacheKey = new Request(`https://gateway-cache.internal/${version}${pathname}${search}`);
+  const tags = readTags(pathname);
+  const versions = await Promise.all(tags.map((t) => c.env.CACHE_KV.get(`cache-tag:${t}`)));
+  const signature = tags.map((t, i) => `${t}:${versions[i] ?? '0'}`).join('|');
+  const cacheKey = new Request(`https://gateway-cache.internal/${signature}${pathname}${search}`);
   const cached = await caches.default.match(cacheKey);
   if (cached !== undefined) {
     c.res = new Response(cached.body, cached);

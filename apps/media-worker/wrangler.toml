@@ -15,3 +15,9 @@ workers_dev = false
 [[r2_buckets]]
 binding = "MEDIA"
 bucket_name = "edge-cmf-media"
+
+# Même namespace KV que content-worker/gateway : le tag `cache-tag:media`
+# participe à l'ETag des pages du front (invalidation à la Drupal).
+[[kv_namespaces]]
+binding = "CACHE_KV"
+id = "a8b2d2ae1d5143b3abb8f5426ff69183"

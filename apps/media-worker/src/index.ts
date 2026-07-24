@@ -12,9 +12,20 @@ import {
 
 type Bindings = {
   MEDIA: R2Bucket;
+  CACHE_KV: KVNamespace;
 };
 
 const app = new Hono<{ Bindings: Bindings }>();
+
+// Toute mutation de média fait avancer le tag `media` (mêmes clés KV que le
+// content-worker) : les pages HTML du front, dont l'ETag inclut ce tag,
+// sont invalidées — un remplacement de fichier est donc détecté partout.
+app.use('/api/*', async (c, next) => {
+  await next();
+  if (c.req.method !== 'GET' && c.res.ok) {
+    c.executionCtx.waitUntil(c.env.CACHE_KV.put('cache-tag:media', Date.now().toString(36)));
+  }
+});
 
 // ---------------------------------------------------------------------------
 // Helpers

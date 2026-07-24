@@ -20,3 +20,9 @@ service = "content-worker"
 [[services]]
 binding = "MEDIA_WORKER"
 service = "media-worker"
+
+# Lecture des tags de cache (page cache à la Drupal : ETag/304 + cache edge
+# du HTML, invalidés par les versions de tags écrites par les workers).
+[[kv_namespaces]]
+binding = "CACHE_KV"
+id = "a8b2d2ae1d5143b3abb8f5426ff69183"

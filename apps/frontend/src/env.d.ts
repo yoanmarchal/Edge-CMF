@@ -15,11 +15,22 @@ interface InternalFetcher {
  * typé contre ce namespace global `Cloudflare.Env` (et non plus un `Env`
  * local threadé à travers `locals`).
  */
+/** Interface minimale d'un namespace KV (lecture seule côté front). */
+interface InternalKV {
+  get(key: string): Promise<string | null>;
+}
+
 declare namespace Cloudflare {
   interface Env {
     readonly CONTENT_WORKER: InternalFetcher;
     readonly MEDIA_WORKER: InternalFetcher;
+    readonly CACHE_KV: InternalKV;
   }
+}
+
+/** L'API Cache Workers expose `caches.default`, absent des types DOM. */
+interface CacheStorage {
+  readonly default: Cache;
 }
 
 /**

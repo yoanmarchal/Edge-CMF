@@ -35,7 +35,7 @@ import {
   type FieldRow,
   type TermRow,
 } from './schema';
-import { getCacheVersion, bumpCacheVersion, buildCacheKey } from './cache';
+import { getTagSignature, bumpTags, buildCacheKey, tagsForRead, tagsForMutation } from './cache';
 
 const settingKeyParamSchema = z.object({ key: z.string().min(1).max(64) });
 const settingValueSchema = z.object({ value: z.string().max(256) });
@@ -192,19 +192,23 @@ async function replaceNodeParagraphs(
 }
 
 // ---------------------------------------------------------------------------
-// Middleware de cache Edge (Cache API + versionnage KV)
+// Middleware de cache Edge (Cache API + tags versionnés en KV, à la Drupal) :
+// une lecture ne dépend que des tags de sa famille, une mutation ne fait
+// avancer que les tags qu'elle affecte.
 // ---------------------------------------------------------------------------
 app.use('/api/*', async (c, next) => {
+  const pathname = new URL(c.req.url).pathname;
+
   if (c.req.method !== 'GET') {
     await next();
     if (c.res.ok) {
-      c.executionCtx.waitUntil(bumpCacheVersion(c.env.CACHE_KV));
+      c.executionCtx.waitUntil(bumpTags(c.env.CACHE_KV, tagsForMutation(pathname)));
     }
     return;
   }
 
-  const version = await getCacheVersion(c.env.CACHE_KV);
-  const cacheKey = buildCacheKey(version, c.req.url);
+  const signature = await getTagSignature(c.env.CACHE_KV, tagsForRead(pathname));
+  const cacheKey = buildCacheKey(signature, c.req.url);
   const cached = await caches.default.match(cacheKey);
   if (cached !== undefined) {
     c.res = new Response(cached.body, cached);
