@@ -79,7 +79,7 @@ export default function MediaLibrary({ canWrite }: { canWrite: boolean }) {
           {items.map((m) => (
             <a class="media-card" href={`/media/${m.key}`} key={m.key} title={m.key}>
               {m.kind === 'image' ? (
-                <img class="media-thumb" src={`/api/media/file/${m.key}`} alt={m.alt} loading="lazy" />
+                <img class="media-thumb" src={`/api/media/file/${m.key}?v=${encodeURIComponent(m.uploaded)}`} alt={m.alt} loading="lazy" />
               ) : (
                 <div class="media-thumb media-tile" data-kind={m.kind}>
                   {KIND_LABEL[m.kind]}

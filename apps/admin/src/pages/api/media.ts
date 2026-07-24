@@ -31,8 +31,11 @@ export const GET: APIRoute = async ({ cookies, url }) => {
   return proxyResponse(await mediaClient().api.media.$get({ query }));
 };
 
-/** Upload : repropage le multipart tel quel (champs `file` et `alt`). */
-export const POST: APIRoute = async ({ request, cookies }) => {
+/**
+ * Upload (multipart `file` + `alt`) — ou remplacement du fichier d'un média
+ * existant si `?key=` est fourni (édition sur place, même clé publique).
+ */
+export const POST: APIRoute = async ({ request, cookies, url }) => {
   const auth = await requireApiSession(cookies, { writeOnly: true });
   if (auth instanceof Response) return auth;
 
@@ -40,7 +43,16 @@ export const POST: APIRoute = async ({ request, cookies }) => {
   if (!contentType.startsWith('multipart/form-data')) {
     return Response.json({ success: false, error: 'multipart/form-data attendu' }, { status: 400 });
   }
-  const upstream = await mediaFetch('/api/media', {
+
+  let path = '/api/media';
+  const replaceKey = url.searchParams.get('key');
+  if (replaceKey !== null) {
+    const key = keySchema.safeParse(replaceKey);
+    if (!key.success) return Response.json({ success: false, error: 'key invalide' }, { status: 400 });
+    path = `/api/media/replace/${key.data}`;
+  }
+
+  const upstream = await mediaFetch(path, {
     method: 'POST',
     headers: { 'content-type': contentType },
     body: await request.arrayBuffer(),

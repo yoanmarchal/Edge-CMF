@@ -103,7 +103,7 @@ export default function MediaPicker({ value, clearable, onValue }: Props) {
               {items.map((m) => (
                 <button type="button" class="media-picker-item" key={m.key} title={m.originalName} onClick={() => pick(m.key)}>
                   {m.kind === 'image' ? (
-                    <img src={`/api/media/file/${m.key}`} alt={m.alt} loading="lazy" />
+                    <img src={`/api/media/file/${m.key}?v=${encodeURIComponent(m.uploaded)}`} alt={m.alt} loading="lazy" />
                   ) : (
                     <span class="media-picker-kind">{m.kind}</span>
                   )}

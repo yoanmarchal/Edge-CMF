@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import type { MediaItem } from '@edge-cmf/shared-types';
 import { adminApi } from './lib/adminApi';
 import { Loading, Notice } from './lib/ui';
@@ -17,6 +17,8 @@ export default function MediaDetail({ mediaKey, canWrite }: { mediaKey: string; 
   const [alt, setAlt] = useState('');
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [replacing, setReplacing] = useState(false);
+  const replaceInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     adminApi
@@ -28,8 +30,32 @@ export default function MediaDetail({ mediaKey, canWrite }: { mediaKey: string; 
       .catch((e: Error) => setError(e.message));
   }, [mediaKey]);
 
-  const fileUrl = `/api/media/file/${mediaKey}`;
+  // `?v=<date d'upload>` : URL unique par version → l'aperçu admin reflète
+  // immédiatement un remplacement, sans attendre l'expiration du cache.
+  const fileUrl = `/api/media/file/${mediaKey}${item !== null ? `?v=${encodeURIComponent(item.uploaded)}` : ''}`;
   const publicUrl = `/media/${mediaKey}`;
+
+  const replace = async (e: Event) => {
+    const input = e.currentTarget as HTMLInputElement;
+    const file = input.files?.[0];
+    if (file === undefined) return;
+    setReplacing(true);
+    setError(null);
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      const res = await adminApi.postForm<{ success: true; data: MediaItem }>(
+        `/api/media?key=${encodeURIComponent(mediaKey)}`,
+        form,
+      );
+      setItem(res.data);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setReplacing(false);
+      input.value = '';
+    }
+  };
 
   const saveAlt = async () => {
     setSaving(true);
@@ -113,11 +139,23 @@ export default function MediaDetail({ mediaKey, canWrite }: { mediaKey: string; 
               {copied ? 'Copié ✓' : "Copier l'URL"}
             </button>
             {canWrite && (
-              <button type="button" class="badge danger" onClick={remove}>
-                Supprimer
-              </button>
+              <>
+                <button type="button" class="badge" disabled={replacing} onClick={() => replaceInput.current?.click()}>
+                  {replacing ? 'Remplacement…' : 'Remplacer le fichier'}
+                </button>
+                <input ref={replaceInput} type="file" hidden onChange={replace} />
+                <button type="button" class="badge danger" onClick={remove}>
+                  Supprimer
+                </button>
+              </>
             )}
           </p>
+          {canWrite && (
+            <p class="muted">
+              Le remplacement garde la même URL publique : les contenus qui référencent ce média affichent
+              automatiquement le nouveau fichier (même type requis).
+            </p>
+          )}
 
           {canWrite && item.kind === 'image' && (
             <label class="field">

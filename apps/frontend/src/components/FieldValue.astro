@@ -2,9 +2,16 @@
 /**
  * Rendu d'une valeur de champ de la Field API, agnostique du bundle :
  * - tableau (champ à cardinalité multiple) → itération sur chaque item ;
- * - chemin média `/media/…` → <img> si image, lien de téléchargement sinon ;
+ * - chemin média `/media/…` → <img> si image, lien de téléchargement sinon,
+ *   avec URL VERSIONNÉE (`?v=<timestamp d'upload>`, équivalent itok de
+ *   Drupal) résolue au rendu SSR via le media-worker : un remplacement de
+ *   fichier change l'URL, donc les caches navigateur/edge détectent la
+ *   modification immédiatement — et les URLs versionnées peuvent être
+ *   servies en cache immuable ;
  * - tout le reste → texte brut.
  */
+import { env } from 'cloudflare:workers';
+
 interface Props {
   value: unknown;
 }
@@ -13,20 +20,46 @@ const { value } = Astro.props;
 const IMAGE_RE = /\.(jpe?g|png|webp|avif|gif|svg)$/i;
 const isMedia = (v: unknown): v is string => typeof v === 'string' && v.startsWith('/media/');
 const items: unknown[] = Array.isArray(value) ? value : [value];
+
+/** `/media/<clé>` → `/media/<clé>?v=<epoch>` (repli : chemin nu si le média a disparu). */
+async function versionedUrl(path: string): Promise<string> {
+  const key = path.replace(/^\/media\//, '');
+  try {
+    const res = await env.MEDIA_WORKER.fetch(`http://interne/api/media/item/${key}`);
+    if (!res.ok) return path;
+    const { data } = (await res.json()) as { data: { uploaded: string } };
+    return `${path}?v=${Date.parse(data.uploaded)}`;
+  } catch {
+    return path;
+  }
+}
+
+type Rendered =
+  | { kind: 'image'; href: string }
+  | { kind: 'file'; href: string }
+  | { kind: 'text'; text: string };
+
+const rendered: Rendered[] = await Promise.all(
+  items.map(async (item): Promise<Rendered> => {
+    if (isMedia(item)) {
+      const href = await versionedUrl(item);
+      return IMAGE_RE.test(item) ? { kind: 'image', href } : { kind: 'file', href };
+    }
+    return { kind: 'text', text: String(item) };
+  }),
+);
 ---
 
 {
-  items.map((item) =>
-    isMedia(item) ? (
-      IMAGE_RE.test(item) ? (
-        <img class="field-media" src={item} alt="" loading="lazy" />
-      ) : (
-        <a class="field-media-link" href={item}>
-          Télécharger le fichier
-        </a>
-      )
+  rendered.map((r) =>
+    r.kind === 'image' ? (
+      <img class="field-media" src={r.href} alt="" loading="lazy" />
+    ) : r.kind === 'file' ? (
+      <a class="field-media-link" href={r.href}>
+        Télécharger le fichier
+      </a>
     ) : (
-      <span class="field-value">{String(item)}</span>
+      <span class="field-value">{r.text}</span>
     ),
   )
 }

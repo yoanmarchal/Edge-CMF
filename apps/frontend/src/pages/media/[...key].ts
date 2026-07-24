@@ -20,7 +20,10 @@ export const GET: APIRoute = async ({ params, request }) => {
   if (range !== null) headers.set('range', range);
   if (ifNoneMatch !== null) headers.set('if-none-match', ifNoneMatch);
 
-  const upstream = await env.MEDIA_WORKER.fetch(`http://interne/api/media/file/${key}`, { headers });
+  // La query est repropagée : `?v=` (URL versionnée au rendu SSR) déclenche
+  // le cache immuable côté media-worker.
+  const search = new URL(request.url).search;
+  const upstream = await env.MEDIA_WORKER.fetch(`http://interne/api/media/file/${key}${search}`, { headers });
   if (upstream.status === 404) return new Response('Introuvable', { status: 404 });
   return new Response(upstream.body, { status: upstream.status, headers: upstream.headers });
 };

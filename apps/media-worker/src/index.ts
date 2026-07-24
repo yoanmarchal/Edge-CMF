@@ -62,12 +62,17 @@ function toMediaItem(obj: R2Object): MediaItem {
   };
 }
 
-/** En-têtes de diffusion : clés uniques et immuables → cache agressif sûr. */
+/**
+ * En-têtes de diffusion. Les fichiers sont REMPLAÇABLES sur place (édition),
+ * donc pas d'`immutable` aveugle : revalidation ETag côté navigateur
+ * (max-age court + stale-while-revalidate), le gros du travail étant fait
+ * par le cache edge interne versionné par ETag (voir route file).
+ */
 function serveHeaders(obj: R2Object): Headers {
   const headers = new Headers();
   obj.writeHttpMetadata(headers);
   headers.set('etag', obj.httpEtag);
-  headers.set('cache-control', 'public, max-age=31536000, immutable');
+  headers.set('cache-control', 'public, max-age=300, stale-while-revalidate=86400');
   // Un SVG peut embarquer du script : neutralisé même servi inline.
   headers.set('x-content-type-options', 'nosniff');
   headers.set('content-security-policy', "default-src 'none'; style-src 'unsafe-inline'");
@@ -131,31 +136,98 @@ const routes = app
     return c.json({ data: toMediaItem(obj) });
   })
 
-  // Diffusion du binaire — ETag + Range (audio/vidéo), cache immutable.
+  // Diffusion du binaire — ETag/304, Range (audio/vidéo) et cache edge
+  // versionné : la clé de cache inclut l'ETag R2, donc un remplacement de
+  // fichier invalide instantanément l'ancienne entrée (même principe que
+  // l'invalidation par version du content-worker, cahier §3.3).
   .get('/api/media/file/:key{.+}', async (c) => {
     const key = c.req.param('key');
+    const meta = await c.env.MEDIA.head(key);
+    if (meta === null) return c.json({ success: false as const, error: 'Média introuvable' }, 404);
 
+    const headers = serveHeaders(meta);
+    // URL versionnée (`?v=` estampillé au rendu SSR, façon itok Drupal) :
+    // chaque version a une URL unique → cache immuable sans risque.
+    if (c.req.query('v') !== undefined) {
+      headers.set('cache-control', 'public, max-age=31536000, immutable');
+    }
+
+    // Revalidation navigateur : 304 sans corps ni lecture R2.
     const ifNoneMatch = c.req.header('if-none-match');
-    const range = parseRange(c.req.header('range'));
-
-    const getOpts: R2GetOptions = {};
-    if (ifNoneMatch !== undefined) getOpts.onlyIf = { etagDoesNotMatch: stripEtag(ifNoneMatch) };
-    if (range !== undefined) getOpts.range = range;
-    const obj = await c.env.MEDIA.get(key, getOpts);
-    if (obj === null) return c.json({ success: false as const, error: 'Média introuvable' }, 404);
-
-    const headers = serveHeaders(obj);
-    if (!('body' in obj) || obj.body === null) {
-      // Précondition If-None-Match satisfaite : pas de corps.
+    if (ifNoneMatch !== undefined && stripEtag(ifNoneMatch) === stripEtag(meta.httpEtag)) {
       return new Response(null, { status: 304, headers });
     }
+
+    // Requêtes Range : streaming direct depuis R2, hors cache.
+    const range = parseRange(c.req.header('range'));
     if (range !== undefined) {
-      const end = range.length !== undefined ? Math.min(range.offset + range.length, obj.size) - 1 : obj.size - 1;
-      headers.set('content-range', `bytes ${range.offset}-${end}/${obj.size}`);
-      return new Response(obj.body, { status: 206, headers });
+      const partial = await c.env.MEDIA.get(key, { range });
+      if (partial === null || partial.body === null) {
+        return c.json({ success: false as const, error: 'Média introuvable' }, 404);
+      }
+      const end = range.length !== undefined ? Math.min(range.offset + range.length, meta.size) - 1 : meta.size - 1;
+      headers.set('content-range', `bytes ${range.offset}-${end}/${meta.size}`);
+      return new Response(partial.body, { status: 206, headers });
     }
-    headers.set('accept-ranges', 'bytes');
-    return new Response(obj.body, { status: 200, headers });
+
+    // Cache edge (API Cache Workers), versionné par ETag.
+    const cache = caches.default;
+    const cacheKey = new Request(`https://media-cache.interne/${encodeURI(key)}?etag=${stripEtag(meta.httpEtag)}`);
+    const cached = await cache.match(cacheKey);
+    if (cached !== undefined) {
+      const out = new Response(cached.body, cached);
+      out.headers.set('accept-ranges', 'bytes');
+      out.headers.set('x-media-cache', 'hit');
+      return out;
+    }
+
+    const obj = await c.env.MEDIA.get(key);
+    if (obj === null || obj.body === null) {
+      return c.json({ success: false as const, error: 'Média introuvable' }, 404);
+    }
+    const res = new Response(obj.body, { status: 200, headers });
+    c.executionCtx.waitUntil(cache.put(cacheKey, res.clone()));
+    res.headers.set('accept-ranges', 'bytes');
+    return res;
+  })
+
+  // Remplacement du fichier d'un média existant (édition) : même clé — les
+  // contenus qui référencent `/media/<clé>` restent valides —, métadonnées
+  // conservées, nouvel ETag → caches edge et navigateur invalidés.
+  .post('/api/media/replace/:key{.+}', async (c) => {
+    const key = c.req.param('key');
+    const existing = await c.env.MEDIA.head(key);
+    if (existing === null) return c.json({ success: false as const, error: 'Média introuvable' }, 404);
+
+    const body = await c.req.parseBody();
+    const file = body.file;
+    if (!(file instanceof File)) {
+      return c.json({ success: false as const, error: 'Champ "file" manquant' }, 400);
+    }
+    if (!ALL_MEDIA_MIME_TYPES.includes(file.type)) {
+      return c.json({ success: false as const, error: `Type non autorisé : ${file.type}` }, 415);
+    }
+    // Même famille obligatoire : une image reste une image (les contenus
+    // qui l'affichent en <img> ne doivent pas se retrouver avec un PDF).
+    const existingType = existing.httpMetadata?.contentType ?? 'application/octet-stream';
+    if (mediaKindOf(file.type) !== mediaKindOf(existingType)) {
+      return c.json({ success: false as const, error: 'Le remplacement doit être du même type de média' }, 415);
+    }
+    if (file.size > MEDIA_MAX_BYTES) {
+      return c.json(
+        { success: false as const, error: `Fichier trop lourd (max ${MEDIA_MAX_BYTES / 1024 / 1024} Mo)` },
+        413,
+      );
+    }
+
+    const updated = await c.env.MEDIA.put(key, await file.arrayBuffer(), {
+      httpMetadata: { contentType: file.type },
+      customMetadata: {
+        originalName: file.name.slice(0, 255),
+        alt: existing.customMetadata?.alt ?? '',
+      },
+    });
+    return c.json({ success: true as const, data: toMediaItem(updated) });
   })
 
   // Mise à jour de l'alt — R2 ne mute pas les métadonnées : réécriture sur place.
