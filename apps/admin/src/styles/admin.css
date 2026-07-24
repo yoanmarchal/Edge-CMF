@@ -314,6 +314,62 @@
     font-size: 0.9em;
   }
 
+  /* ------------------------------------------------------------------
+     Transitions — 100% natif navigateur (View Transitions API + CSS).
+     Sobre : le shell (sidebar/topbar) reste immobile entre les pages,
+     seul le contenu principal fait un fondu + léger glissement.
+     Fallback gracieux : navigateurs sans support = navigation classique.
+     ------------------------------------------------------------------ */
+  @media (prefers-reduced-motion: no-preference) {
+    /* Chaque zone du shell est capturée séparément : sidebar et topbar
+       étant identiques entre deux pages, elles paraissent statiques. */
+    .admin-sidebar {
+      view-transition-name: admin-sidebar;
+    }
+    .admin-topbar {
+      view-transition-name: admin-topbar;
+    }
+    .admin-main {
+      view-transition-name: admin-main;
+    }
+
+    /* Micro-interactions : survols et focus adoucis, appui de bouton. */
+    .admin-sidebar a,
+    .admin-main button,
+    .admin-main .badge,
+    .admin-main a {
+      transition:
+        background-color 0.15s ease,
+        border-color 0.15s ease,
+        color 0.15s ease,
+        filter 0.15s ease;
+    }
+    .admin-main button:active {
+      transform: translateY(1px);
+    }
+    .admin-main input,
+    .admin-main textarea,
+    .admin-main select {
+      transition: border-color 0.15s ease;
+    }
+    .admin-main :is(input, textarea, select):focus-visible {
+      border-color: var(--admin-accent);
+      outline: none;
+    }
+
+    /* Apparition du contenu des îlots (Chargement… → données). */
+    .admin-main :is(table, form.stack, section) {
+      animation: admin-appear 0.18s ease-out both;
+    }
+  }
+
+  @keyframes admin-appear {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+  }
+
   /* Sidebar en pleine largeur sous 60rem — le shell admin reste full-size,
      seule la disposition sidebar/contenu s'empile. */
   @media (max-width: 60rem) {
@@ -335,5 +391,43 @@
       padding: 0;
       flex-basis: 100%;
     }
+  }
+}
+
+/* Active les view transitions cross-document (navigation MPA native).
+   Hors @layer : les at-rules @view-transition et ::view-transition-*
+   ciblent la racine, pas la cascade admin. */
+@view-transition {
+  navigation: auto;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* Pas de fondu global : seule la zone de contenu s'anime. */
+  ::view-transition-old(root),
+  ::view-transition-new(root),
+  ::view-transition-old(admin-sidebar),
+  ::view-transition-new(admin-sidebar),
+  ::view-transition-old(admin-topbar),
+  ::view-transition-new(admin-topbar) {
+    animation: none;
+  }
+
+  ::view-transition-old(admin-main) {
+    animation: admin-vt-out 0.09s ease-in both;
+  }
+  ::view-transition-new(admin-main) {
+    animation: admin-vt-in 0.16s ease-out 0.05s both;
+  }
+}
+
+@keyframes admin-vt-out {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes admin-vt-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
   }
 }
