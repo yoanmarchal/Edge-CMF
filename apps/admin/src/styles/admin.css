@@ -357,8 +357,9 @@
       outline: none;
     }
 
-    /* Apparition du contenu des îlots (Chargement… → données). */
-    .admin-main :is(table, form.stack, section) {
+    /* Apparition du contenu des îlots (Chargement… → données)
+       et des blocs ajoutés dynamiquement (éditeur de paragraphes). */
+    .admin-main :is(table, form.stack, section, .paragraph-item) {
       animation: admin-appear 0.18s ease-out both;
     }
   }
