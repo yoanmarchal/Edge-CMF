@@ -1,85 +1,43 @@
-import type { APIRoute } from 'astro';
 import { z } from 'zod';
-import { insertNodeSchema, updateNodeSchema, machineNameSchema } from '@edge-cmf/shared-types';
+import { insertNodeSchema, updateNodeSchema } from '@edge-cmf/shared-types';
 import { contentClient, proxyResponse } from '../../lib/api';
-import { requireApiSession } from '../../lib/session';
+import { jsonError, mutation, mutations, read } from '../../lib/handler';
 
 const uuid = z.string().uuid();
 
 /**
- * API JSON /api/nodes — consommée par l'îlot Preact ContentList/ContentForm
- * (client:only, l'admin n'a pas de SSR de contenu). Proxy authentifié vers
- * le content-worker (Service Binding, jamais exposé directement au client).
+ * API JSON /api/nodes — consommée par les îlots ContentList/ContentForm.
+ * Proxy authentifié vers le content-worker (Service Binding, jamais exposé
+ * directement au client). Lecture : tout compte connecté ; écriture :
+ * admin + editor.
  */
-export const GET: APIRoute = async ({ cookies, url }) => {
-  const auth = await requireApiSession(cookies);
-  if (auth instanceof Response) return auth;
-
+export const GET = read('session', async ({ url }) => {
   const client = contentClient();
-  const id = url.searchParams.get('id');
-  if (id !== null) {
-    const parsedId = uuid.safeParse(id);
-    if (!parsedId.success) return Response.json({ success: false, error: 'id invalide' }, { status: 400 });
-    return proxyResponse(await client.api.node[':id'].$get({ param: { id: parsedId.data } }));
+
+  const rawId = url.searchParams.get('id');
+  if (rawId !== null) {
+    const id = uuid.safeParse(rawId);
+    if (!id.success) return jsonError('id invalide', 400);
+    return proxyResponse(await client.api.node[':id'].$get({ param: { id: id.data } }));
   }
 
+  // `all=1` : les brouillons sont visibles en back-office, jamais côté public.
   const query: Record<string, string> = { all: '1', limit: '100' };
   for (const [key, value] of url.searchParams) query[key] = value;
   return proxyResponse(await client.api.nodes.$get({ query }));
-};
+});
 
-export const POST: APIRoute = async ({ request, cookies }) => {
-  const auth = await requireApiSession(cookies, { writeOnly: true });
-  if (auth instanceof Response) return auth;
+export const POST = mutations('write', {
+  // L'identifiant est attribué ici : le formulaire ne le fournit pas.
+  create: mutation(insertNodeSchema.omit({ id: true }), (input) =>
+    contentClient().api.nodes.$post({ json: { ...input, id: crypto.randomUUID() } }),
+  ),
 
-  const body = (await request.json()) as Record<string, unknown>;
-  const action = body._action;
-  const client = contentClient();
+  update: mutation(updateNodeSchema.extend({ id: uuid }), ({ id, ...changes }) =>
+    contentClient().api.nodes[':id'].$put({ param: { id }, json: changes }),
+  ),
 
-  if (action === 'delete') {
-    const id = uuid.safeParse(body.id);
-    if (!id.success) return Response.json({ success: false, error: 'validation' }, { status: 400 });
-    const res = await client.api.nodes[':id'].$delete({ param: { id: id.data } });
-    return res.ok
-      ? Response.json({ success: true })
-      : Response.json({ success: false, error: 'suppression' }, { status: 400 });
-  }
-
-  if (action === 'update') {
-    const id = uuid.safeParse(body.id);
-    if (!id.success) return Response.json({ success: false, error: 'validation' }, { status: 400 });
-    const parsed = updateNodeSchema.safeParse(body);
-    if (!parsed.success) {
-      return Response.json({ success: false, error: parsed.error.message }, { status: 400 });
-    }
-    const res = await client.api.nodes[':id'].$put({ param: { id: id.data }, json: parsed.data });
-    if (!res.ok) {
-      const respBody = await res.json();
-      const msg = 'error' in respBody ? respBody.error : 'modification';
-      return Response.json({ success: false, error: msg }, { status: 400 });
-    }
-    return Response.json({ success: true, id: id.data });
-  }
-
-  if (action === 'create') {
-    const contentType = machineNameSchema.safeParse(body.contentType);
-    if (!contentType.success) {
-      return Response.json({ success: false, error: 'type invalide' }, { status: 400 });
-    }
-    const parsed = insertNodeSchema.safeParse({ ...body, id: crypto.randomUUID() });
-    if (!parsed.success) {
-      return Response.json({ success: false, error: parsed.error.message }, { status: 400 });
-    }
-    const res = await client.api.nodes.$post({ json: parsed.data });
-    if (!res.ok) {
-      const respBody = await res.json();
-      return Response.json(
-        { success: false, error: 'error' in respBody ? respBody.error : 'création' },
-        { status: 400 },
-      );
-    }
-    return Response.json({ success: true, id: parsed.data.id }, { status: 201 });
-  }
-
-  return Response.json({ success: false, error: 'action inconnue' }, { status: 400 });
-};
+  delete: mutation(z.object({ id: uuid }), ({ id }) =>
+    contentClient().api.nodes[':id'].$delete({ param: { id } }),
+  ),
+});

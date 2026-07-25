@@ -1,65 +1,32 @@
-import type { APIRoute } from 'astro';
 import { z } from 'zod';
 import { registerSchema, roleEnum } from '@edge-cmf/shared-types';
 import { authClient, proxyResponse } from '../../lib/api';
-import { requireApiSession } from '../../lib/session';
+import { bearer, mutation, mutations, read } from '../../lib/handler';
 
 const uuid = z.string().uuid();
 
-/** API JSON /api/users — gestion des comptes (adminOnly). */
-export const GET: APIRoute = async ({ cookies }) => {
-  const auth = await requireApiSession(cookies, { adminOnly: true });
-  if (auth instanceof Response) return auth;
-  return proxyResponse(
-    await authClient().users.$get(undefined, { headers: { Authorization: `Bearer ${auth.token}` } }),
-  );
-};
+/**
+ * API JSON /api/users — gestion des comptes (adminOnly de bout en bout).
+ * L'auth-worker revérifie lui-même le rôle de l'appelant à partir du JWT :
+ * d'où le header `Authorization` sur chaque appel.
+ */
+export const GET = read('admin', async ({ session }) =>
+  proxyResponse(await authClient().users.$get(undefined, { headers: bearer(session) })),
+);
 
-export const POST: APIRoute = async ({ request, cookies }) => {
-  const auth = await requireApiSession(cookies, { adminOnly: true });
-  if (auth instanceof Response) return auth;
+export const POST = mutations('admin', {
+  create: mutation(registerSchema, (input, { session }) =>
+    authClient().register.$post({ json: input }, { headers: bearer(session) }),
+  ),
 
-  const body = (await request.json()) as Record<string, unknown>;
-  const action = body._action;
-  const client = authClient();
-  const headers = { Authorization: `Bearer ${auth.token}` };
+  'set-role': mutation(z.object({ id: uuid, role: roleEnum }), ({ id, role }, { session }) =>
+    authClient().users[':id'].role.$put(
+      { param: { id }, json: { role } },
+      { headers: bearer(session) },
+    ),
+  ),
 
-  if (action === 'create') {
-    const parsed = registerSchema.safeParse({
-      email: body.email,
-      password: body.password,
-      role: body.role,
-    });
-    if (!parsed.success) return Response.json({ success: false, error: parsed.error.message }, { status: 400 });
-    const res = await client.register.$post({ json: parsed.data }, { headers });
-    return res.ok
-      ? Response.json({ success: true }, { status: 201 })
-      : Response.json({ success: false, error: 'email déjà utilisé' }, { status: 409 });
-  }
-
-  if (action === 'set-role') {
-    const id = uuid.safeParse(body.id);
-    const role = roleEnum.safeParse(body.role);
-    if (!id.success || !role.success) {
-      return Response.json({ success: false, error: 'validation' }, { status: 400 });
-    }
-    const res = await client.users[':id'].role.$put(
-      { param: { id: id.data }, json: { role: role.data } },
-      { headers },
-    );
-    return res.ok
-      ? Response.json({ success: true })
-      : Response.json({ success: false, error: 'modification' }, { status: 400 });
-  }
-
-  if (action === 'delete') {
-    const id = uuid.safeParse(body.id);
-    if (!id.success) return Response.json({ success: false, error: 'validation' }, { status: 400 });
-    const res = await client.users[':id'].$delete({ param: { id: id.data } }, { headers });
-    return res.ok
-      ? Response.json({ success: true })
-      : Response.json({ success: false, error: 'suppression' }, { status: 400 });
-  }
-
-  return Response.json({ success: false, error: 'action inconnue' }, { status: 400 });
-};
+  delete: mutation(z.object({ id: uuid }), ({ id }, { session }) =>
+    authClient().users[':id'].$delete({ param: { id } }, { headers: bearer(session) }),
+  ),
+});
