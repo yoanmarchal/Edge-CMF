@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'preact/hooks';
+import { CircleCheck, CircleDashed, Plus, Trash2 } from 'lucide-preact';
 import { adminApi } from './lib/adminApi';
-import { Loading, Notice } from './lib/ui';
+import { ActionButton, ActionLink, IconLabel, Loading, Notice } from './lib/ui';
 
 interface NodeRow {
   id: string;
@@ -52,9 +53,9 @@ export default function ContentList({ canWrite }: { canWrite: boolean }) {
         <p class="action-row">
           <span>Créer :</span>
           {types.map((t) => (
-            <a class="badge" href={`/content/new?type=${t.id}`}>
-              + {t.label}
-            </a>
+            <ActionLink icon={Plus} href={`/content/new?type=${t.id}`}>
+              {t.label}
+            </ActionLink>
           ))}
         </p>
       )}
@@ -80,13 +81,23 @@ export default function ContentList({ canWrite }: { canWrite: boolean }) {
                     <a href={`/content/edit/${n.id}`}>{n.title}</a>
                   </td>
                   <td>{n.contentType}</td>
-                  <td>{n.status ? 'Publié' : 'Brouillon'}</td>
+                  <td>
+                    {n.status ? (
+                      <IconLabel icon={CircleCheck} class="status-ok">
+                        Publié
+                      </IconLabel>
+                    ) : (
+                      <IconLabel icon={CircleDashed} class="muted">
+                        Brouillon
+                      </IconLabel>
+                    )}
+                  </td>
                   <td class="muted">/{n.slug}</td>
                   <td>
                     {canWrite && (
-                      <button type="button" class="danger" onClick={() => remove(n.id)}>
+                      <ActionButton icon={Trash2} danger onClick={() => remove(n.id)}>
                         Supprimer
-                      </button>
+                      </ActionButton>
                     )}
                   </td>
                 </tr>

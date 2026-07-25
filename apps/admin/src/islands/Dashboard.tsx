@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'preact/hooks';
+import { Blocks, FileText, Shapes } from 'lucide-preact';
 import { adminApi } from './lib/adminApi';
-import { Loading, Notice } from './lib/ui';
+import { IconLabel, Loading, Notice } from './lib/ui';
 
 interface Stats {
   nodes: number;
@@ -31,13 +32,25 @@ export default function Dashboard() {
     <>
       <ul>
         <li>
-          <a href="/content">{stats.nodes} contenu(s)</a>
+          <a href="/content">
+            <IconLabel icon={FileText} size={16}>
+              {stats.nodes} contenu(s)
+            </IconLabel>
+          </a>
         </li>
         <li>
-          <a href="/types">{stats.types} type(s) de contenu</a>
+          <a href="/types">
+            <IconLabel icon={Shapes} size={16}>
+              {stats.types} type(s) de contenu
+            </IconLabel>
+          </a>
         </li>
         <li>
-          <a href="/paragraphs">{stats.paragraphTypes} type(s) de paragraphe</a>
+          <a href="/paragraphs">
+            <IconLabel icon={Blocks} size={16}>
+              {stats.paragraphTypes} type(s) de paragraphe
+            </IconLabel>
+          </a>
         </li>
       </ul>
       <p class="muted">

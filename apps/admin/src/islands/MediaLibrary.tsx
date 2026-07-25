@@ -1,9 +1,22 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
+import { ChevronDown, FileText, Music, Upload, Video } from 'lucide-preact';
 import type { MediaItem, MediaListResult } from '@edge-cmf/shared-types';
 import { adminApi } from './lib/adminApi';
-import { Loading, Notice } from './lib/ui';
+import { ActionButton, Loading, Notice } from './lib/ui';
 
 const KIND_LABEL = { image: 'Image', document: 'Document', audio: 'Audio', video: 'Vidéo' } as const;
+const KIND_ICON = { image: FileText, document: FileText, audio: Music, video: Video } as const;
+
+/** Tuile de remplacement pour les médias sans aperçu (document, audio, vidéo). */
+function MediaTile({ kind }: { kind: MediaItem['kind'] }) {
+  const KindIcon = KIND_ICON[kind];
+  return (
+    <div class="media-thumb media-tile" data-kind={kind}>
+      <KindIcon size={28} aria-hidden={true} />
+      {KIND_LABEL[kind]}
+    </div>
+  );
+}
 
 function humanSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} o`;
@@ -63,9 +76,9 @@ export default function MediaLibrary({ canWrite }: { canWrite: boolean }) {
 
       {canWrite && (
         <p class="action-row">
-          <button type="button" class="badge" disabled={busy} onClick={() => fileInput.current?.click()}>
-            {busy ? 'Envoi en cours…' : '+ Téléverser des fichiers'}
-          </button>
+          <ActionButton icon={Upload} badge disabled={busy} onClick={() => fileInput.current?.click()}>
+            {busy ? 'Envoi en cours…' : 'Téléverser des fichiers'}
+          </ActionButton>
           <input ref={fileInput} type="file" multiple hidden onChange={upload} />
         </p>
       )}
@@ -81,9 +94,7 @@ export default function MediaLibrary({ canWrite }: { canWrite: boolean }) {
               {m.kind === 'image' ? (
                 <img class="media-thumb" src={`/api/media/file/${m.key}?v=${encodeURIComponent(m.uploaded)}`} alt={m.alt} loading="lazy" />
               ) : (
-                <div class="media-thumb media-tile" data-kind={m.kind}>
-                  {KIND_LABEL[m.kind]}
-                </div>
+                <MediaTile kind={m.kind} />
               )}
               <strong class="media-name">{m.originalName}</strong>
               <span class="muted">
@@ -96,9 +107,9 @@ export default function MediaLibrary({ canWrite }: { canWrite: boolean }) {
 
       {cursor !== null && (
         <p class="action-row">
-          <button type="button" onClick={() => load(cursor)}>
+          <ActionButton icon={ChevronDown} onClick={() => load(cursor)}>
             Charger plus
-          </button>
+          </ActionButton>
         </p>
       )}
     </>

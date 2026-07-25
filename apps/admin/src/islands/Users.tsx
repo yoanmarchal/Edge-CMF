@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'preact/hooks';
+import { Trash2, UserPlus } from 'lucide-preact';
 import type { Role } from '@edge-cmf/shared-types';
 import { adminApi } from './lib/adminApi';
-import { Loading, Notice } from './lib/ui';
+import { ActionButton, ActionLink, Loading, Notice } from './lib/ui';
 
 interface UserRow {
   id: string;
@@ -49,9 +50,9 @@ export default function Users({ selfId }: { selfId: string }) {
       {error !== null && <Notice kind="error">Erreur : {error}</Notice>}
 
       <p class="action-row">
-        <a class="badge" href="/users/new">
-          + Nouvel utilisateur
-        </a>
+        <ActionLink icon={UserPlus} href="/users/new">
+          Nouvel utilisateur
+        </ActionLink>
       </p>
 
       {users === null ? (
@@ -82,9 +83,9 @@ export default function Users({ selfId }: { selfId: string }) {
                 </td>
                 <td>
                   {u.id !== selfId && (
-                    <button type="button" class="danger" onClick={() => remove(u.id)}>
+                    <ActionButton icon={Trash2} danger onClick={() => remove(u.id)}>
                       Supprimer
-                    </button>
+                    </ActionButton>
                   )}
                 </td>
               </tr>

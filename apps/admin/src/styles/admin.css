@@ -74,6 +74,18 @@
       text-decoration: none;
       padding: 0.5rem 0.75rem;
       border-radius: var(--admin-radius);
+      display: flex;
+      align-items: center;
+      gap: 0.55rem;
+
+      /* Icônes lucide : légèrement estompées sauf sur l'entrée active. */
+      > svg.lucide {
+        flex-shrink: 0;
+        opacity: 0.75;
+      }
+      &[aria-current='page'] > svg.lucide {
+        opacity: 1;
+      }
 
       &:hover {
         background: color-mix(in srgb, var(--admin-accent) 10%, transparent);
@@ -135,6 +147,45 @@
   .admin-main .muted {
     color: var(--admin-muted);
     font-size: 0.9em;
+  }
+
+  /* ------------------------------------------------------------------
+     Icônes (lucide-preact).
+     Le reset met les svg en `display: block` : un svg posé à côté d'un
+     texte se retrouve seul sur sa ligne. Règle d'or : icône + texte
+     passent TOUJOURS par un conteneur flex — les composants IconLabel /
+     ActionButton / ActionLink (islands/lib/ui.tsx) s'en chargent.
+     ------------------------------------------------------------------ */
+  .admin svg.lucide {
+    display: inline-block;
+    flex-shrink: 0;
+  }
+  /* Recette flex unique pour tout élément mélangeant icône + texte. */
+  .admin .icon-label,
+  .admin-main button,
+  .admin-topbar button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+  .admin-main .notice,
+  .admin-main .loading {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .admin-main .status-ok {
+    color: var(--admin-success);
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .admin-main .loading > svg.lucide {
+      animation: admin-spin 0.9s linear infinite;
+    }
+  }
+  @keyframes admin-spin {
+    to {
+      transform: rotate(360deg);
+    }
   }
 
   .admin-main table {
@@ -216,7 +267,11 @@
   }
 
   .admin-main .badge {
-    display: inline-block;
+    /* inline-flex (pas inline-block) : les icônes des ActionLink/ActionButton
+       doivent rester sur la même ligne que le libellé. */
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
     padding: 0 0.5rem;
     border: 1px solid var(--admin-border);
     border-radius: 999px;
@@ -292,8 +347,10 @@
   }
   .admin-main .media-tile {
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
+    gap: 0.4rem;
     color: var(--admin-muted);
     font-weight: 600;
     letter-spacing: 0.05em;

@@ -1,6 +1,20 @@
 ---
 import '../styles/admin.css';
 import type { UserContext } from '@edge-cmf/shared-types';
+// Icônes SSR uniquement : rendues en SVG statique côté serveur (pas de
+// directive client), donc zéro JS envoyé au navigateur pour la nav.
+import {
+  LayoutDashboard,
+  FileText,
+  Image,
+  Shapes,
+  Blocks,
+  Tags,
+  Users,
+  Palette,
+  LogOut,
+} from 'lucide-preact';
+import type { LucideIcon } from 'lucide-preact';
 
 interface Props {
   title: string;
@@ -9,17 +23,19 @@ interface Props {
 const { title, user } = Astro.props;
 const path = Astro.url.pathname;
 
-const nav: { href: string; label: string }[] = [
-  { href: '/', label: 'Tableau de bord' },
-  { href: '/content', label: 'Contenu' },
-  { href: '/media', label: 'Médias' },
-  { href: '/types', label: 'Types de contenu' },
-  { href: '/paragraphs', label: 'Paragraphes' },
-  { href: '/taxonomy', label: 'Taxonomie' },
+type NavIcon = LucideIcon;
+
+const nav: { href: string; label: string; icon: NavIcon }[] = [
+  { href: '/', label: 'Tableau de bord', icon: LayoutDashboard },
+  { href: '/content', label: 'Contenu', icon: FileText },
+  { href: '/media', label: 'Médias', icon: Image },
+  { href: '/types', label: 'Types de contenu', icon: Shapes },
+  { href: '/paragraphs', label: 'Paragraphes', icon: Blocks },
+  { href: '/taxonomy', label: 'Taxonomie', icon: Tags },
   ...(user.role === 'admin'
     ? [
-        { href: '/users', label: 'Utilisateurs' },
-        { href: '/appearance', label: 'Apparence' },
+        { href: '/users', label: 'Utilisateurs', icon: Users },
+        { href: '/appearance', label: 'Apparence', icon: Palette },
       ]
     : []),
 ];
@@ -42,8 +58,9 @@ const nav: { href: string; label: string }[] = [
     <div class="admin-shell">
       <aside class="admin-sidebar">
         <div class="admin-brand">CMF Edge — Admin</div>
-        {nav.map((item) => (
+        {nav.map(({ icon: Icon, ...item }) => (
           <a href={item.href} aria-current={path === item.href ? 'page' : undefined}>
+            <Icon size={16} aria-hidden={true} />
             {item.label}
           </a>
         ))}
@@ -51,7 +68,10 @@ const nav: { href: string; label: string }[] = [
       <header class="admin-topbar">
         <span class="admin-user">{user.email} · {user.role}</span>
         <form method="post" action="/api/logout" class="inline">
-          <button type="submit">Déconnexion</button>
+          <button type="submit">
+            <LogOut size={15} aria-hidden={true} />
+            Déconnexion
+          </button>
         </form>
       </header>
       <main class="admin-main">

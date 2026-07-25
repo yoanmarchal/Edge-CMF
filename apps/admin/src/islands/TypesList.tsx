@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'preact/hooks';
+import { Plus } from 'lucide-preact';
 import { adminApi } from './lib/adminApi';
-import { Loading, Notice } from './lib/ui';
+import { ActionLink, Loading, Notice } from './lib/ui';
 
 interface TypeRow {
   id: string;
@@ -22,7 +23,7 @@ const COPY = {
       </p>
     ),
     newHref: '/types/new',
-    newLabel: '+ Nouveau type de contenu',
+    newLabel: 'Nouveau type de contenu',
   },
   paragraph: {
     title: 'Types de paragraphes',
@@ -33,7 +34,7 @@ const COPY = {
       </p>
     ),
     newHref: '/paragraphs/new',
-    newLabel: '+ Nouveau type de paragraphe',
+    newLabel: 'Nouveau type de paragraphe',
   },
 } as const;
 
@@ -59,9 +60,9 @@ export default function TypesList({ kind }: Props) {
       {error !== null && <Notice kind="error">Erreur : {error}</Notice>}
 
       <p class="action-row">
-        <a class="badge" href={copy.newHref}>
+        <ActionLink icon={Plus} href={copy.newHref}>
           {copy.newLabel}
-        </a>
+        </ActionLink>
       </p>
 
       {types === null ? (
