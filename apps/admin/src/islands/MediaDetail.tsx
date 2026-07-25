@@ -4,6 +4,7 @@ import { api } from './lib/contract';
 import { useMutation, useResource } from './lib/hooks';
 import { ActionButton, ActionLink, AsyncView, Notice } from './lib/ui';
 import { humanSize, mediaFileUrl, publicMediaUrl } from './lib/media';
+import { routes } from '../lib/routes';
 
 const KIND_LABEL = { image: 'Image', document: 'Document', audio: 'Audio', video: 'Vidéo' } as const;
 
@@ -40,7 +41,7 @@ export default function MediaDetail({ mediaKey, canWrite }: { mediaKey: string; 
   const remove = () =>
     void mutation.run(() => api.media.remove(mediaKey), {
       confirm: 'Supprimer ce média ? Les contenus qui l’utilisent perdront le fichier.',
-      redirect: { to: '/media', flash: 'media-supprime' },
+      redirect: { to: routes.media.list, flash: 'media-supprime' },
     });
 
   const copy = () => {

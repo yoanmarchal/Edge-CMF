@@ -1,10 +1,10 @@
 ---
 import AdminShell from '../../layouts/AdminShell.astro';
 import ContentList from '../../islands/ContentList';
-import { getSessionUser, canWrite } from '../../lib/session';
+import { requirePage, canWrite } from '../../lib/session';
 
-const session = await getSessionUser(Astro.cookies);
-if (session === null) return Astro.redirect('/');
+const session = await requirePage(Astro);
+if (session instanceof Response) return session;
 ---
 
 <AdminShell title="Contenu" user={session.user}>

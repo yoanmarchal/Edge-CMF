@@ -1,10 +1,11 @@
 ---
 import AdminShell from '../../layouts/AdminShell.astro';
+import { crumbs } from '../../lib/routes';
 import ContentForm from '../../islands/ContentForm';
-import { getSessionUser, canWrite } from '../../lib/session';
+import { requirePage } from '../../lib/session';
 
-const session = await getSessionUser(Astro.cookies);
-if (session === null || !canWrite(session.user)) return Astro.redirect('/');
+const session = await requirePage(Astro, { writeOnly: true });
+if (session instanceof Response) return session;
 
 const typeId = Astro.url.searchParams.get('type') ?? 'page';
 ---
@@ -12,7 +13,7 @@ const typeId = Astro.url.searchParams.get('type') ?? 'page';
 <AdminShell
   title="Nouveau contenu"
   user={session.user}
-  breadcrumb={[{ label: 'Contenu', href: '/content' }]}
+  breadcrumb={[crumbs.content]}
 >
   <ContentForm client:only="preact" mode="new" typeId={typeId} />
 </AdminShell>

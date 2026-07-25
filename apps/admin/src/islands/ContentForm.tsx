@@ -12,6 +12,7 @@ import { useMutation, useResource } from './lib/hooks';
 import { ActionButton, AsyncView, Field, Notice, SubmitButton } from './lib/ui';
 import FieldInput from './FieldInput';
 import ParagraphsEditor, { toEntries, toValues, type ParagraphEntry } from './ParagraphsEditor';
+import { routes } from '../lib/routes';
 
 const SITE_URL = import.meta.env.PUBLIC_SITE_URL ?? '';
 
@@ -92,7 +93,7 @@ export default function ContentForm({ mode, typeId, nodeId }: Props) {
     void mutation.run(
       () => (node !== null ? api.nodes.update(node.id, payload) : api.nodes.create(payload)),
       {
-        redirect: { to: '/content', flash: node !== null ? 'contenu-modifie' : 'contenu-cree' },
+        redirect: { to: routes.content.list, flash: node !== null ? 'contenu-modifie' : 'contenu-cree' },
       },
     );
   };
@@ -101,7 +102,7 @@ export default function ContentForm({ mode, typeId, nodeId }: Props) {
     if (node === null) return;
     void mutation.run(() => api.nodes.remove(node.id), {
       confirm: `Supprimer le contenu « ${node.title} » ?`,
-      redirect: { to: '/content', flash: 'contenu-supprime' },
+      redirect: { to: routes.content.list, flash: 'contenu-supprime' },
     });
   };
 

@@ -2,6 +2,7 @@ import { Blocks, FileText, Shapes } from 'lucide-preact';
 import { api } from './lib/contract';
 import { useResource } from './lib/hooks';
 import { IconLabel, Loading, Notice } from './lib/ui';
+import { routes } from '../lib/routes';
 
 export default function Dashboard() {
   // Comptage en SQL côté worker : trois listes chargées puis mesurées en
@@ -17,21 +18,21 @@ export default function Dashboard() {
     <>
       <ul>
         <li>
-          <a href="/content">
+          <a href={routes.content.list}>
             <IconLabel icon={FileText} size={16}>
               {nodes} contenu(s) — dont {publishedNodes} publié(s)
             </IconLabel>
           </a>
         </li>
         <li>
-          <a href="/types">
+          <a href={routes.types.list}>
             <IconLabel icon={Shapes} size={16}>
               {types} type(s) de contenu
             </IconLabel>
           </a>
         </li>
         <li>
-          <a href="/paragraphs">
+          <a href={routes.paragraphs.list}>
             <IconLabel icon={Blocks} size={16}>
               {paragraphTypes} type(s) de paragraphe
             </IconLabel>

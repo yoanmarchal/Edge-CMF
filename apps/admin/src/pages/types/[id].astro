@@ -1,14 +1,14 @@
 ---
 import AdminShell from '../../layouts/AdminShell.astro';
 import TypeDetail from '../../islands/TypeDetail';
-import { getSessionUser } from '../../lib/session';
+import { routes } from '../../lib/routes';
+import { requirePage } from '../../lib/session';
 
-const session = await getSessionUser(Astro.cookies);
-if (session === null) return Astro.redirect('/');
-if (session.user.role !== 'admin') return Astro.redirect('/?error=droits');
+const session = await requirePage(Astro, { adminOnly: true });
+if (session instanceof Response) return session;
 
 const { id } = Astro.params;
-if (id === undefined || !/^[a-z][a-z0-9_]*$/.test(id)) return Astro.redirect('/types');
+if (id === undefined || !/^[a-z][a-z0-9_]*$/.test(id)) return Astro.redirect(routes.types.list);
 ---
 
 {/* Pas de fil d'Ariane ici : la section parente (/types ou /paragraphs)

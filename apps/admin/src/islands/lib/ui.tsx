@@ -139,10 +139,16 @@ export function LoadMoreButton({ onClick }: { onClick: () => void }) {
   );
 }
 
+/**
+ * Notice. `role` fait annoncer le message par les lecteurs d'écran sans
+ * déplacer le focus : une erreur apparue après une action passait sinon
+ * totalement inaperçue pour un utilisateur non voyant.
+ * `alert` (assertif) pour une erreur, `status` (poli) pour un succès.
+ */
 export function Notice({ kind, children }: { kind: 'error' | 'ok'; children: ComponentChildren }) {
   const Icon = kind === 'error' ? CircleAlert : CircleCheck;
   return (
-    <p class={`notice ${kind}`}>
+    <p class={`notice ${kind}`} role={kind === 'error' ? 'alert' : 'status'}>
       <Icon size={16} aria-hidden={true} />
       {children}
     </p>
@@ -151,7 +157,7 @@ export function Notice({ kind, children }: { kind: 'error' | 'ok'; children: Com
 
 export function Loading() {
   return (
-    <p class="muted loading">
+    <p class="muted loading" role="status">
       <LoaderCircle size={16} aria-hidden={true} />
       Chargement…
     </p>
@@ -239,8 +245,12 @@ export function DataTable<Row>({
     <table>
       <thead>
         <tr>
+          {/* `scope="col"` : sans lui, un lecteur d'écran ne rattache pas
+              les cellules à leur en-tête dans un tableau de données. */}
           {columns.map((c, i) => (
-            <th key={c.header ?? `col${i}`}>{c.header}</th>
+            <th key={c.header ?? `col${i}`} scope="col">
+              {c.header}
+            </th>
           ))}
         </tr>
       </thead>

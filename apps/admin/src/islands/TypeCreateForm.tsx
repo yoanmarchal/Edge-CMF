@@ -2,6 +2,7 @@ import { useState } from 'preact/hooks';
 import { api } from './lib/contract';
 import { useMutation } from './lib/hooks';
 import { Field, FormScreen } from './lib/ui';
+import { routes } from '../lib/routes';
 
 interface Props {
   kind: 'node' | 'paragraph';
@@ -9,8 +10,8 @@ interface Props {
 
 /** Titre et fil d'Ariane sont rendus en SSR par la page. */
 const COPY = {
-  node: { idPlaceholder: 'article', backTo: '/types' },
-  paragraph: { idPlaceholder: 'hero_banner', backTo: '/paragraphs' },
+  node: { idPlaceholder: 'article', backTo: routes.types.list },
+  paragraph: { idPlaceholder: 'hero_banner', backTo: routes.paragraphs.list },
 } as const;
 
 export default function TypeCreateForm({ kind }: Props) {

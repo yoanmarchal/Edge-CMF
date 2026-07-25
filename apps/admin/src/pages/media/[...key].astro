@@ -1,19 +1,20 @@
 ---
 import AdminShell from '../../layouts/AdminShell.astro';
+import { crumbs, routes } from '../../lib/routes';
 import MediaDetail from '../../islands/MediaDetail';
-import { getSessionUser, canWrite } from '../../lib/session';
+import { requirePage, canWrite } from '../../lib/session';
 
-const session = await getSessionUser(Astro.cookies);
-if (session === null) return Astro.redirect('/');
+const session = await requirePage(Astro);
+if (session instanceof Response) return session;
 
 const { key } = Astro.params;
-if (key === undefined || key.length === 0) return Astro.redirect('/media');
+if (key === undefined || key.length === 0) return Astro.redirect(routes.media.list);
 ---
 
 <AdminShell
   title="Média"
   user={session.user}
-  breadcrumb={[{ label: 'Médias', href: '/media' }]}
+  breadcrumb={[crumbs.media]}
 >
   <MediaDetail client:only="preact" mediaKey={key} canWrite={canWrite(session.user)} />
 </AdminShell>

@@ -4,6 +4,7 @@ import { api, type MediaItem } from './lib/contract';
 import { useCursorList, useMutation } from './lib/hooks';
 import { ActionButton, EmptyState, Loading, LoadMoreButton, Notice } from './lib/ui';
 import { humanSize, mediaFileUrl } from './lib/media';
+import { routes } from '../lib/routes';
 
 const KIND_LABEL = { image: 'Image', document: 'Document', audio: 'Audio', video: 'Vidéo' } as const;
 const KIND_ICON = { image: FileText, document: FileText, audio: Music, video: Video } as const;
@@ -73,7 +74,7 @@ export default function MediaLibrary({ canWrite }: { canWrite: boolean }) {
         ) : (
           <div class="card-grid media-grid">
             {media.items.map((m) => (
-              <a class="media-card" href={`/media/${m.key}`} key={m.key} title={m.key}>
+              <a class="media-card" href={routes.media.detail(m.key)} key={m.key} title={m.key}>
                 {m.kind === 'image' ? (
                   <img class="media-thumb" src={mediaFileUrl(m.key, m.uploaded)} alt={m.alt} loading="lazy" />
                 ) : (

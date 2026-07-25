@@ -21,11 +21,16 @@ function emptyItem(def: FieldDef): unknown {
 function SingleControl({
   def,
   id,
+  label,
   value,
   onValue,
 }: {
   def: FieldDef;
   id: string;
+  /** Nom accessible du contrôle. Fourni en cardinalité multiple, où chaque
+   *  valeur a besoin d'être distinguée (« Auteurs — valeur 2 »). En valeur
+   *  unique, le <label> englobant suffit et `label` reste indéfini. */
+  label?: string;
   value: unknown;
   onValue: (v: unknown) => void;
 }): JSX.Element {
@@ -37,6 +42,7 @@ function SingleControl({
       return (
         <textarea
           id={id}
+          aria-label={label}
           rows={5}
           required={def.required}
           value={str}
@@ -47,6 +53,7 @@ function SingleControl({
       return (
         <input
           id={id}
+          aria-label={label}
           type="checkbox"
           checked={value === true}
           onChange={(e) => onValue((e.currentTarget as HTMLInputElement).checked)}
@@ -56,6 +63,7 @@ function SingleControl({
       return (
         <input
           id={id}
+          aria-label={label}
           type="number"
           step="any"
           value={str}
@@ -69,6 +77,7 @@ function SingleControl({
       return (
         <input
           id={id}
+          aria-label={label}
           type="date"
           value={str}
           required={def.required}
@@ -77,7 +86,13 @@ function SingleControl({
       );
     case 'select':
       return (
-        <select id={id} required={def.required} value={str} onChange={(e) => onValue((e.currentTarget as HTMLSelectElement).value)}>
+        <select
+          id={id}
+          aria-label={label}
+          required={def.required}
+          value={str}
+          onChange={(e) => onValue((e.currentTarget as HTMLSelectElement).value)}
+        >
           {!def.required && <option value="">—</option>}
           {(def.settings.options ?? []).map((opt) => (
             <option key={opt} value={opt}>
@@ -90,6 +105,7 @@ function SingleControl({
       return (
         <input
           id={id}
+          aria-label={label}
           value={str}
           placeholder="UUID du nœud référencé"
           required={def.required}
@@ -102,6 +118,7 @@ function SingleControl({
       return (
         <input
           id={id}
+          aria-label={label}
           value={str}
           maxLength={255}
           required={def.required}
@@ -121,9 +138,13 @@ export default function FieldInput({ def, value, onChange }: Props) {
     const items: unknown[] = Array.isArray(value) ? value : [];
     const setItems = (next: unknown[]) => onChange(def.name, next.length > 0 ? next : undefined);
 
+    // `role="group"` + `aria-labelledby` : l'équivalent ARIA d'un
+    // <fieldset>/<legend>, sans hériter du style encadré des fieldsets.
+    // Avant, le libellé était un <span> orphelin et les `id` générés
+    // n'étaient reliés à rien : les champs multiples n'avaient aucun nom.
     return (
-      <div class="field">
-        <span>
+      <div class="field" role="group" aria-labelledby={`${id}_label`}>
+        <span id={`${id}_label`}>
           {def.label}
           {def.required && <span class="muted"> (requis)</span>} <span class="badge">multiple</span>
         </span>
@@ -132,6 +153,7 @@ export default function FieldInput({ def, value, onChange }: Props) {
             <SingleControl
               def={def}
               id={`${id}_${i}`}
+              label={`${def.label} — valeur ${i + 1}`}
               value={item}
               onValue={(v) => {
                 if (v === undefined) {
@@ -141,7 +163,7 @@ export default function FieldInput({ def, value, onChange }: Props) {
                 }
               }}
             />
-            <RemoveButton title="Retirer cette valeur" onClick={() => setItems(items.filter((_, idx) => idx !== i))} />
+            <RemoveButton title={`Retirer la valeur ${i + 1} de ${def.label}`} onClick={() => setItems(items.filter((_, idx) => idx !== i))} />
           </div>
         ))}
         <p class="action-row">

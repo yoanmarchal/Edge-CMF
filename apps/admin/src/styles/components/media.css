@@ -1,0 +1,216 @@
+/*
+ * Bibliothèque, fiche et sélecteur de médias, modale incluse.
+ */
+@layer admin {
+  /* Bibliothèque de médias */
+  .admin-main .media-grid {
+    grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+  }
+
+  .admin-main .media-card {
+    border: 1px solid var(--admin-border);
+    border-radius: var(--admin-radius);
+    background: var(--admin-surface);
+    padding: var(--admin-space-4);
+    display: grid;
+    /* Piste explicite bornée : sans ça, la colonne implicite `auto` se cale
+       sur la largeur NATURELLE de l'image (le width:100% de l'img est
+       cyclique pour le calcul de piste) et déborde de la carte. */
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--admin-space-2);
+    align-content: start;
+    /* Un item de grille a min-width:auto par défaut : une image large
+       forcerait la colonne à s'élargir au-delà de la carte. */
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .admin-main .media-thumb {
+    width: 100%;
+    min-width: 0;
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
+    border-radius: var(--admin-radius-inner);
+    background: var(--admin-bg);
+  }
+
+  .admin-main .media-tile {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--admin-space-2);
+    color: var(--admin-muted);
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    font-size: var(--admin-text-sm);
+    border: 1px dashed var(--admin-border);
+  }
+
+  .admin-main .media-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Carte cliquable → fiche média */
+  .admin-main a.media-card {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .admin-main a.media-card:hover {
+    border-color: var(--admin-accent);
+  }
+
+  /* Fiche média (route /media/<clé>) */
+  .admin-main .media-detail {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(16rem, 1fr);
+    gap: var(--admin-space-6);
+    align-items: start;
+  }
+
+  @media (max-width: 60rem) {
+    .admin-main .media-detail {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
+  .admin-main .media-detail-preview img,
+  .admin-main .media-detail-preview video {
+    width: 100%;
+    border: 1px solid var(--admin-border);
+    border-radius: var(--admin-radius);
+    background: var(--admin-surface);
+  }
+
+  .admin-main .media-detail-preview audio {
+    width: 100%;
+  }
+
+  .admin-main .media-meta {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: var(--admin-space-2) var(--admin-space-5);
+    margin: 0;
+  }
+
+  .admin-main .media-meta dt {
+    color: var(--admin-muted);
+  }
+
+  .admin-main .media-meta dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+
+  /* Sélecteur de média (champs `media` de la Field API) */
+  .admin-main .media-picker {
+    display: grid;
+    gap: var(--admin-space-3);
+  }
+
+  .admin-main .media-picker-current {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--admin-space-3);
+  }
+
+  .admin-main .media-picker-current img {
+    width: 3.5rem;
+    aspect-ratio: 1;
+    object-fit: cover;
+    border-radius: var(--admin-radius-inner);
+    border: 1px solid var(--admin-border);
+  }
+
+  /* Modale de sélection — <dialog> natif, grande, centrée par le navigateur */
+  .admin-main .media-modal {
+    width: min(64rem, 92vw);
+    max-height: min(46rem, 85vh);
+    margin: auto;
+    padding: var(--admin-space-5) var(--admin-space-6);
+    border: 1px solid var(--admin-border);
+    border-radius: var(--admin-radius);
+    background: var(--admin-surface);
+    color: var(--admin-fg);
+    box-shadow: 0 20px 60px rgb(0 0 0 / 0.35);
+  }
+
+  .admin-main .media-modal::backdrop {
+    background: rgb(0 0 0 / 0.45);
+    backdrop-filter: blur(2px);
+  }
+
+  .admin-main .media-modal-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--admin-space-5);
+    margin-bottom: var(--admin-space-4);
+  }
+
+  .admin-main .media-modal-head h2 {
+    margin: 0;
+    font-size: var(--admin-text-lg);
+  }
+
+  .admin-main .media-modal-body {
+    max-height: calc(min(46rem, 85vh) - 6rem);
+    overflow-y: auto;
+  }
+
+  .admin-main .media-picker-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+    gap: var(--admin-space-3);
+  }
+
+  .admin-main .media-picker-item {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--admin-space-1);
+    padding: var(--admin-space-2);
+    background: none;
+    border: 1px solid var(--admin-border);
+    border-radius: var(--admin-radius-inner);
+    color: inherit;
+    cursor: pointer;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .admin-main .media-picker-item:hover {
+    border-color: var(--admin-accent);
+    background: none;
+  }
+
+  .admin-main .media-picker-item img {
+    width: 100%;
+    aspect-ratio: 1;
+    object-fit: cover;
+    border-radius: var(--admin-radius-sm);
+  }
+
+  .admin-main .media-picker-kind {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    aspect-ratio: 1;
+    color: var(--admin-muted);
+    text-transform: uppercase;
+    font-size: var(--admin-text-xs);
+    border: 1px dashed var(--admin-border);
+    border-radius: var(--admin-radius-sm);
+  }
+
+  .admin-main .media-picker-name {
+    font-size: var(--admin-text-xs);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}

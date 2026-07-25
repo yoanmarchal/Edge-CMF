@@ -1,21 +1,21 @@
 ---
 import AdminShell from '../../../layouts/AdminShell.astro';
+import { crumbs, routes } from '../../../lib/routes';
 import TermCreateForm from '../../../islands/TermCreateForm';
-import { getSessionUser, canWrite } from '../../../lib/session';
+import { requirePage } from '../../../lib/session';
 
-const session = await getSessionUser(Astro.cookies);
-if (session === null) return Astro.redirect('/');
-if (!canWrite(session.user)) return Astro.redirect('/?error=droits');
+const session = await requirePage(Astro, { writeOnly: true });
+if (session instanceof Response) return session;
 
 const { vid } = Astro.params;
-if (vid === undefined) return Astro.redirect('/taxonomy');
+if (vid === undefined) return Astro.redirect(routes.taxonomy.list);
 ---
 
 <AdminShell
   title="Nouveau terme"
   user={session.user}
   chip={vid}
-  breadcrumb={[{ label: 'Taxonomie', href: '/taxonomy' }]}
+  breadcrumb={[crumbs.taxonomy]}
 >
   <TermCreateForm client:only="preact" vid={vid} />
 </AdminShell>

@@ -2,6 +2,7 @@ import { Plus, Trash2 } from 'lucide-preact';
 import { api, type VocabularyWithTerms } from './lib/contract';
 import { useMutation, useResource } from './lib/hooks';
 import { ActionButton, ActionLink, AsyncView, DataTable, EmptyState, Notice, RemoveButton } from './lib/ui';
+import { routes } from '../lib/routes';
 
 export default function Taxonomy() {
   const vocabularies = useResource(() => api.taxonomy.list());
@@ -27,7 +28,7 @@ export default function Taxonomy() {
       {mutation.error !== null && <Notice kind="error">Erreur : {mutation.error}</Notice>}
 
       <p class="action-row">
-        <ActionLink icon={Plus} href="/taxonomy/new">
+        <ActionLink icon={Plus} href={routes.taxonomy.new}>
           Nouveau vocabulaire
         </ActionLink>
       </p>
@@ -74,7 +75,7 @@ export default function Taxonomy() {
                 )}
 
                 <p class="action-row">
-                  <ActionLink icon={Plus} href={`/taxonomy/${v.id}/new`}>
+                  <ActionLink icon={Plus} href={routes.taxonomy.newTerm(v.id)}>
                     Nouveau terme
                   </ActionLink>
                 </p>

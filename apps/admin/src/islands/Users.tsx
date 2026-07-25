@@ -2,6 +2,7 @@ import { Trash2, UserPlus } from 'lucide-preact';
 import { api, type AdminUser, type Role } from './lib/contract';
 import { useMutation, useResource } from './lib/hooks';
 import { ActionButton, ActionLink, AsyncView, DataTable, Notice } from './lib/ui';
+import { routes } from '../lib/routes';
 
 const ROLES: Role[] = ['admin', 'editor', 'viewer'];
 
@@ -23,7 +24,7 @@ export default function Users({ selfId }: { selfId: string }) {
       {mutation.error !== null && <Notice kind="error">Erreur : {mutation.error}</Notice>}
 
       <p class="action-row">
-        <ActionLink icon={UserPlus} href="/users/new">
+        <ActionLink icon={UserPlus} href={routes.users.new}>
           Nouvel utilisateur
         </ActionLink>
       </p>

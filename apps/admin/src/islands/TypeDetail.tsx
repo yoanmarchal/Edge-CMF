@@ -14,6 +14,7 @@ import {
   RemoveButton,
   SubmitButton,
 } from './lib/ui';
+import { bundleSection } from '../lib/routes';
 
 const FIELD_TYPES: { value: FieldType; label: string }[] = [
   { value: 'text', label: 'Texte court' },
@@ -72,7 +73,7 @@ export default function TypeDetail({ id }: { id: string }) {
   const removeType = (isParagraph: boolean) =>
     void mutation.run(() => api.types.remove(id), {
       confirm: 'Supprimer ce type ?',
-      redirect: { to: isParagraph ? '/paragraphs' : '/types', flash: 'type-supprime' },
+      redirect: { to: bundleSection(isParagraph).href, flash: 'type-supprime' },
     });
 
   return (
@@ -87,8 +88,8 @@ export default function TypeDetail({ id }: { id: string }) {
               {/* Le titre (nom machine) est rendu en SSR par la page. Le lien
                   retour reste ici : la section parente dépend du `kind`, que
                   seul l'îlot connaît une fois le type chargé. */}
-              <BackLink href={isParagraph ? '/paragraphs' : '/types'}>
-                {isParagraph ? 'Types de paragraphes' : 'Types de contenu'}
+              <BackLink href={bundleSection(isParagraph).href}>
+                {bundleSection(isParagraph).label}
               </BackLink>
               <p>
                 <strong>{type.label}</strong>{' '}

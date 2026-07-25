@@ -2,6 +2,7 @@ import { useState } from 'preact/hooks';
 import { api } from './lib/contract';
 import { useMutation } from './lib/hooks';
 import { Field, FormScreen } from './lib/ui';
+import { routes } from '../lib/routes';
 
 export default function VocabCreateForm() {
   const [id, setId] = useState('');
@@ -11,7 +12,7 @@ export default function VocabCreateForm() {
   const create = (e: Event) => {
     e.preventDefault();
     void mutation.run(() => api.taxonomy.createVocabulary({ id, label }), {
-      redirect: { to: '/taxonomy', flash: 'vocabulaire-cree' },
+      redirect: { to: routes.taxonomy.list, flash: 'vocabulaire-cree' },
     });
   };
 

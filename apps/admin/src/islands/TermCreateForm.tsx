@@ -2,6 +2,7 @@ import { useState } from 'preact/hooks';
 import { api } from './lib/contract';
 import { useMutation, useResource } from './lib/hooks';
 import { Field, FormScreen, Notice } from './lib/ui';
+import { routes } from '../lib/routes';
 
 export default function TermCreateForm({ vid }: { vid: string }) {
   const [label, setLabel] = useState('');
@@ -17,7 +18,7 @@ export default function TermCreateForm({ vid }: { vid: string }) {
   const create = (e: Event) => {
     e.preventDefault();
     void mutation.run(() => api.taxonomy.createTerm({ vocabularyId: vid, label, slug }), {
-      redirect: { to: '/taxonomy', flash: 'terme-cree' },
+      redirect: { to: routes.taxonomy.list, flash: 'terme-cree' },
     });
   };
 

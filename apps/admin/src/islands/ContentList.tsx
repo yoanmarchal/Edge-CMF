@@ -2,6 +2,7 @@ import { CircleCheck, CircleDashed, Plus, Trash2 } from 'lucide-preact';
 import { api, type AdminNode, type ContentTypeSummary } from './lib/contract';
 import { useMutation, useResource } from './lib/hooks';
 import { ActionButton, ActionLink, AsyncView, DataTable, IconLabel, Notice } from './lib/ui';
+import { routes } from '../lib/routes';
 
 export default function ContentList({ canWrite }: { canWrite: boolean }) {
   const nodes = useResource(() => api.nodes.list());
@@ -24,7 +25,7 @@ export default function ContentList({ canWrite }: { canWrite: boolean }) {
         <p class="action-row">
           <span>Créer :</span>
           {typeList.map((t) => (
-            <ActionLink key={t.id} icon={Plus} href={`/content/new?type=${t.id}`}>
+            <ActionLink key={t.id} icon={Plus} href={routes.content.new(t.id)}>
               {t.label}
             </ActionLink>
           ))}
@@ -44,7 +45,7 @@ export default function ContentList({ canWrite }: { canWrite: boolean }) {
             rows={rows}
             rowKey={(n) => n.id}
             columns={[
-              { header: 'Titre', cell: (n) => <a href={`/content/edit/${n.id}`}>{n.title}</a> },
+              { header: 'Titre', cell: (n) => <a href={routes.content.edit(n.id)}>{n.title}</a> },
               { header: 'Type', cell: (n) => n.contentType },
               {
                 header: 'Statut',

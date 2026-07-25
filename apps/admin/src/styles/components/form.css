@@ -1,0 +1,110 @@
+/*
+ * Formulaires : champs, cardinalité multiple, fieldset, sections dépliables,
+ * barres d'actions.
+ */
+@layer admin {
+  .admin-main form.stack {
+    display: grid;
+    gap: var(--admin-space-3);
+    max-width: 30rem;
+    margin-block: var(--admin-space-5);
+    padding: var(--admin-space-5);
+    background: var(--admin-surface);
+    border: 1px solid var(--admin-border);
+    border-radius: var(--admin-radius);
+  }
+
+  .admin-main form.inline {
+    display: inline;
+  }
+
+  .admin-main input,
+  .admin-main textarea,
+  .admin-main select,
+  .admin-main button {
+    font: inherit;
+    padding: var(--admin-space-2) var(--admin-space-3);
+    max-width: 100%;
+    border: 1px solid var(--admin-border);
+    border-radius: var(--admin-radius-sm);
+    background: var(--admin-surface);
+    color: inherit;
+  }
+
+  /* Champ à cardinalité multiple : une ligne par valeur + retrait */
+  .admin-main .field-multi-item {
+    display: flex;
+    align-items: start;
+    gap: var(--admin-space-3);
+  }
+
+  .admin-main .field-multi-item > :first-child {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .admin-main .field {
+    display: grid;
+    gap: var(--admin-space-2);
+  }
+
+  .admin-main .field-inline {
+    display: flex;
+    align-items: center;
+    gap: var(--admin-space-3);
+  }
+
+  .admin-main .field-inline input[type='checkbox'] {
+    width: auto;
+  }
+
+  .admin-main fieldset {
+    border: 1px solid var(--admin-border);
+    border-radius: var(--admin-radius);
+    padding: var(--admin-space-4) var(--admin-space-5);
+    margin-block: var(--admin-space-3);
+  }
+
+  .admin-main legend {
+    padding-inline: var(--admin-space-2);
+    font-weight: 600;
+    font-size: var(--admin-text-md);
+    color: var(--admin-muted);
+  }
+
+  .admin-main .checkbox-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--admin-space-3) var(--admin-space-6);
+  }
+
+  .admin-main details {
+    border: 1px solid var(--admin-border);
+    border-radius: var(--admin-radius);
+    padding: var(--admin-space-4) var(--admin-space-5);
+    margin-block: var(--admin-space-5);
+    background: var(--admin-surface);
+  }
+
+  .admin-main details summary {
+    cursor: pointer;
+    font-weight: 600;
+  }
+
+  .admin-main details[open] summary {
+    margin-bottom: var(--admin-space-4);
+  }
+
+  .admin-main .action-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--admin-space-3);
+    margin-block: var(--admin-space-5);
+  }
+
+  .admin-main .action-row > span:first-child {
+    color: var(--admin-muted);
+    font-size: var(--admin-text-md);
+  }
+}

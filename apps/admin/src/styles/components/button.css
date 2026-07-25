@@ -1,0 +1,54 @@
+/*
+ * Boutons et pilules.
+ *
+ * Doit être chargé APRÈS form.css : `.admin-main button` y a exactement la
+ * même spécificité que la règle générique des contrôles de formulaire
+ * (`.admin-main input, …, .admin-main button`). Seul l'ordre les départage.
+ */
+@layer admin {
+  /* Bouton icône seule (RemoveButton) : compact, le libellé est en title. */
+  .admin-main button.icon-only {
+    padding: var(--admin-space-1) var(--admin-space-2);
+  }
+
+  .admin-main button {
+    cursor: pointer;
+    background: var(--admin-accent);
+    color: var(--admin-accent-fg);
+    border-color: transparent;
+  }
+
+  .admin-main button:hover {
+    filter: brightness(0.92);
+  }
+
+  .admin-main button.danger {
+    background: var(--admin-danger);
+  }
+
+  .admin-main button.badge {
+    background: none;
+    color: var(--admin-accent);
+    border: 1px solid var(--admin-border);
+    border-radius: var(--admin-radius-pill);
+  }
+
+  .admin-main button.badge.danger {
+    color: var(--admin-danger);
+  }
+
+  .admin-main .badge {
+    /* inline-flex (pas inline-block) : les icônes des ActionLink/ActionButton
+       doivent rester sur la même ligne que le libellé. */
+    display: inline-flex;
+    align-items: center;
+    gap: var(--admin-space-2);
+    padding: 0 var(--admin-space-3);
+    border: 1px solid var(--admin-border);
+    border-radius: var(--admin-radius-pill);
+    font-size: var(--admin-text-sm);
+    margin-right: var(--admin-space-1);
+    text-decoration: none;
+    color: inherit;
+  }
+}

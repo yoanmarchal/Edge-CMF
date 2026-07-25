@@ -4,6 +4,7 @@ import { api, type MediaItem } from './lib/contract';
 import { useCursorList } from './lib/hooks';
 import { ActionButton, EmptyState, Loading, LoadMoreButton, Notice } from './lib/ui';
 import { isImagePath, mediaFileUrl, publicMediaUrl } from './lib/media';
+import { routes } from '../lib/routes';
 
 interface Props {
   value: string;
@@ -62,13 +63,14 @@ export default function MediaPicker({ value, clearable, onValue }: Props) {
       <dialog
         ref={dialogRef}
         class="media-modal"
+        aria-labelledby="media-modal-title"
         onClick={(e) => {
           // Clic sur le backdrop (le dialog lui-même, pas son contenu) → fermer.
           if (e.target === dialogRef.current) close();
         }}
       >
         <header class="media-modal-head">
-          <h2>Bibliothèque de médias</h2>
+          <h2 id="media-modal-title">Bibliothèque de médias</h2>
           <ActionButton icon={X} badge onClick={close}>
             Fermer
           </ActionButton>
@@ -80,7 +82,7 @@ export default function MediaPicker({ value, clearable, onValue }: Props) {
           {media.items !== null &&
             (media.items.length === 0 ? (
               <EmptyState>
-                Bibliothèque vide — <a href="/media">téléverser des fichiers</a>.
+                Bibliothèque vide — <a href={routes.media.list}>téléverser des fichiers</a>.
               </EmptyState>
             ) : (
               <div class="media-picker-grid">

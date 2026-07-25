@@ -1,0 +1,44 @@
+/*
+ * États et retours : notices, chargement, état vide.
+ */
+@layer admin {
+  .admin-main .notice {
+    padding: var(--admin-space-3) var(--admin-space-4);
+    border-radius: var(--admin-radius);
+    margin-block: var(--admin-space-4);
+  }
+
+  .admin-main .notice.error {
+    background: color-mix(in srgb, var(--admin-danger) 12%, transparent);
+    border: 1px solid var(--admin-danger);
+  }
+
+  .admin-main .notice.ok {
+    background: color-mix(in srgb, var(--admin-success) 12%, transparent);
+    border: 1px solid var(--admin-success);
+  }
+
+  .admin-main .notice,
+  .admin-main .loading {
+    display: flex;
+    align-items: center;
+    gap: var(--admin-space-3);
+  }
+
+  .admin-main .status-ok {
+    color: var(--admin-success);
+  }
+
+  /* État vide d'une liste — jamais un tableau réduit à ses en-têtes. */
+  .admin-main .empty-state {
+    display: flex;
+    align-items: center;
+    gap: var(--admin-space-3);
+    padding: var(--admin-space-6);
+    margin-block: var(--admin-space-5);
+    color: var(--admin-muted);
+    background: var(--admin-surface);
+    border: 1px dashed var(--admin-border);
+    border-radius: var(--admin-radius);
+  }
+}

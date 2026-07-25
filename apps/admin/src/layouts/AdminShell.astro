@@ -18,10 +18,9 @@ import {
 } from 'lucide-preact';
 import type { LucideIcon } from 'lucide-preact';
 
-export interface Crumb {
-  readonly label: string;
-  readonly href: string;
-}
+import { routes, SECTIONS, type Crumb } from '../lib/routes';
+
+export type { Crumb };
 
 interface Props {
   /**
@@ -44,17 +43,19 @@ const path = Astro.url.pathname;
 
 type NavIcon = LucideIcon;
 
+// Chemins et libellés viennent de `lib/routes.ts` : la nav, les fils
+// d'Ariane et les liens des îlots parlent de la même source.
 const nav: { href: string; label: string; icon: NavIcon }[] = [
-  { href: '/', label: 'Tableau de bord', icon: LayoutDashboard },
-  { href: '/content', label: 'Contenu', icon: FileText },
-  { href: '/media', label: 'Médias', icon: Image },
-  { href: '/types', label: 'Types de contenu', icon: Shapes },
-  { href: '/paragraphs', label: 'Paragraphes', icon: Blocks },
-  { href: '/taxonomy', label: 'Taxonomie', icon: Tags },
+  { href: routes.dashboard, label: SECTIONS.dashboard, icon: LayoutDashboard },
+  { href: routes.content.list, label: SECTIONS.content, icon: FileText },
+  { href: routes.media.list, label: SECTIONS.media, icon: Image },
+  { href: routes.types.list, label: SECTIONS.types, icon: Shapes },
+  { href: routes.paragraphs.list, label: SECTIONS.paragraphs, icon: Blocks },
+  { href: routes.taxonomy.list, label: SECTIONS.taxonomy, icon: Tags },
   ...(user.role === 'admin'
     ? [
-        { href: '/users', label: 'Utilisateurs', icon: Users },
-        { href: '/appearance', label: 'Apparence', icon: Palette },
+        { href: routes.users.list, label: SECTIONS.users, icon: Users },
+        { href: routes.appearance, label: SECTIONS.appearance, icon: Palette },
       ]
     : []),
 ];

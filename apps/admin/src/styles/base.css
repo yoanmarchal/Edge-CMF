@@ -1,0 +1,209 @@
+/*
+ * Ossature : shell (sidebar / topbar / contenu), en-tête d'écran rendu en
+ * SSR, typographie, icônes, comportement responsive.
+ */
+@layer admin {
+  body.admin {
+    background: var(--admin-bg);
+    color: var(--admin-fg);
+    font-family: var(--admin-font);
+  }
+
+  /* Shell full-size : sidebar + topbar + contenu, aucune contrainte de largeur */
+  .admin-shell {
+    display: grid;
+    grid-template-columns: var(--admin-sidebar-w) 1fr;
+    grid-template-rows: var(--admin-topbar-h) 1fr;
+    grid-template-areas: 'sidebar topbar' 'sidebar main';
+    min-height: 100svh;
+  }
+
+  .admin-sidebar {
+    grid-area: sidebar;
+    background: var(--admin-surface);
+    border-right: 1px solid var(--admin-border);
+    padding: var(--admin-topbar-h) var(--admin-space-5) var(--admin-space-5);
+    display: flex;
+    flex-direction: column;
+    gap: var(--admin-space-1);
+
+    .admin-brand {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: var(--admin-sidebar-w);
+      height: var(--admin-topbar-h);
+      display: flex;
+      align-items: center;
+      padding-inline: var(--admin-space-5);
+      font-weight: 700;
+      border-bottom: 1px solid var(--admin-border);
+    }
+
+    a {
+      color: var(--admin-fg);
+      text-decoration: none;
+      padding: var(--admin-space-3) var(--admin-space-4);
+      border-radius: var(--admin-radius);
+      display: flex;
+      align-items: center;
+      gap: var(--admin-space-3);
+
+      /* Icônes lucide : légèrement estompées sauf sur l'entrée active. */
+      > svg.lucide {
+        flex-shrink: 0;
+        opacity: 0.75;
+      }
+      &[aria-current='page'] > svg.lucide {
+        opacity: 1;
+      }
+
+      &:hover {
+        background: color-mix(in srgb, var(--admin-accent) 10%, transparent);
+      }
+
+      &[aria-current='page'] {
+        background: var(--admin-accent);
+        color: var(--admin-accent-fg);
+      }
+    }
+  }
+
+  .admin-topbar {
+    grid-area: topbar;
+    background: var(--admin-surface);
+    border-bottom: 1px solid var(--admin-border);
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--admin-space-5);
+    padding-inline: var(--admin-space-6);
+
+    .admin-user {
+      font-size: var(--admin-text-md);
+      color: var(--admin-muted);
+    }
+  }
+
+  .admin-main {
+    grid-area: main;
+    padding: var(--admin-space-7);
+    max-width: 90rem;
+  }
+
+  /* ------------------------------------------------------------------
+     En-tête d'écran — rendu en SSR par AdminShell (fil d'Ariane, titre,
+     description). Les îlots `client:only` ne portent plus de <h1> : la
+     page affichait sinon une zone vide jusqu'au démarrage du JS.
+     ------------------------------------------------------------------ */
+  .admin-main .page-head {
+    margin-bottom: var(--admin-space-6);
+
+    h1 {
+      display: flex;
+      align-items: baseline;
+      flex-wrap: wrap;
+      gap: var(--admin-space-3);
+      margin-block: 0;
+    }
+
+    p {
+      margin-block: var(--admin-space-2) 0;
+      max-width: 60ch;
+    }
+  }
+
+  .admin-main .page-breadcrumb {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--admin-space-1);
+    margin-bottom: var(--admin-space-4);
+    font-size: var(--admin-text-md);
+    color: var(--admin-muted);
+
+    a {
+      color: inherit;
+    }
+    > svg.lucide {
+      opacity: 0.6;
+    }
+  }
+
+  /* Lien d'évitement : hors écran jusqu'à réception du focus clavier. */
+  .skip-link {
+    position: absolute;
+    left: -100vw;
+    top: 0;
+    z-index: 10;
+    padding: var(--admin-space-3) var(--admin-space-4);
+    background: var(--admin-accent);
+    color: var(--admin-accent-fg);
+    border-radius: 0 0 var(--admin-radius) 0;
+
+    &:focus-visible {
+      left: 0;
+    }
+  }
+
+  .admin-main h1,
+  .admin-main h2,
+  .admin-main h3 {
+    line-height: 1.25;
+  }
+
+  .admin-main .muted {
+    color: var(--admin-muted);
+    font-size: var(--admin-text-md);
+  }
+
+  /* ------------------------------------------------------------------
+     Icônes (lucide-preact).
+     Le reset met les svg en `display: block` : un svg posé à côté d'un
+     texte se retrouve seul sur sa ligne. Règle d'or : icône + texte
+     passent TOUJOURS par un conteneur flex — les composants IconLabel /
+     ActionButton / ActionLink (islands/lib/ui.tsx) s'en chargent.
+     ------------------------------------------------------------------ */
+  .admin svg.lucide {
+    display: inline-block;
+    flex-shrink: 0;
+  }
+
+  /* Recette flex unique pour tout élément mélangeant icône + texte. */
+  .admin .icon-label,
+  .admin-main button,
+  .admin-topbar button {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--admin-space-2);
+  }
+
+  /* Les images ne débordent jamais de leur conteneur. */
+  .admin-main img {
+    max-width: 100%;
+    height: auto;
+  }
+
+  /* Sidebar en pleine largeur sous 60rem — le shell admin reste full-size,
+     seule la disposition sidebar/contenu s'empile. */
+  @media (max-width: 60rem) {
+    .admin-shell {
+      grid-template-columns: 1fr;
+      grid-template-rows: var(--admin-topbar-h) auto 1fr;
+      grid-template-areas: 'topbar' 'sidebar' 'main';
+    }
+    .admin-sidebar {
+      padding-top: var(--admin-space-5);
+      flex-direction: row;
+      flex-wrap: wrap;
+    }
+    .admin-sidebar .admin-brand {
+      position: static;
+      width: auto;
+      height: auto;
+      border-bottom: none;
+      padding: 0;
+      flex-basis: 100%;
+    }
+  }
+}

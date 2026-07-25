@@ -1,17 +1,17 @@
 ---
 import AdminShell from '../../layouts/AdminShell.astro';
+import { crumbs } from '../../lib/routes';
 import VocabCreateForm from '../../islands/VocabCreateForm';
-import { getSessionUser, canWrite } from '../../lib/session';
+import { requirePage } from '../../lib/session';
 
-const session = await getSessionUser(Astro.cookies);
-if (session === null) return Astro.redirect('/');
-if (!canWrite(session.user)) return Astro.redirect('/?error=droits');
+const session = await requirePage(Astro, { writeOnly: true });
+if (session instanceof Response) return session;
 ---
 
 <AdminShell
   title="Nouveau vocabulaire"
   user={session.user}
-  breadcrumb={[{ label: 'Taxonomie', href: '/taxonomy' }]}
+  breadcrumb={[crumbs.taxonomy]}
 >
   <VocabCreateForm client:only="preact" />
 </AdminShell>

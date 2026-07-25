@@ -2,6 +2,7 @@ import { useState } from 'preact/hooks';
 import { api, type Role } from './lib/contract';
 import { useMutation } from './lib/hooks';
 import { Field, FormScreen } from './lib/ui';
+import { routes } from '../lib/routes';
 
 const ROLES: Role[] = ['admin', 'editor', 'viewer'];
 
@@ -14,7 +15,7 @@ export default function UserCreateForm() {
   const create = (e: Event) => {
     e.preventDefault();
     void mutation.run(() => api.users.create({ email, password, role }), {
-      redirect: { to: '/users', flash: 'utilisateur-cree' },
+      redirect: { to: routes.users.list, flash: 'utilisateur-cree' },
     });
   };
 

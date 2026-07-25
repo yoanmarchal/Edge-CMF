@@ -1,0 +1,186 @@
+/*
+ * Animations — tout est conditionné à `prefers-reduced-motion`.
+ *
+ * Les at-rules de view transitions vivent HORS du layer admin : elles ciblent
+ * la racine du document, pas la cascade du design system.
+ */
+@layer admin {
+  @media (prefers-reduced-motion: no-preference) {
+    .admin-main .loading > svg.lucide {
+      animation: admin-spin 0.9s linear infinite;
+    }
+  }
+
+  @keyframes admin-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  /* ------------------------------------------------------------------
+     Transitions — 100% natif navigateur (View Transitions API + CSS).
+     Sobre : le shell (sidebar/topbar) reste immobile entre les pages,
+     seul le contenu principal fait un fondu + léger glissement.
+     Fallback gracieux : navigateurs sans support = navigation classique.
+     ------------------------------------------------------------------ */
+  @media (prefers-reduced-motion: no-preference) {
+    /* Chaque zone du shell est capturée séparément : sidebar et topbar
+       étant identiques entre deux pages, elles paraissent statiques. */
+    .admin-sidebar {
+      view-transition-name: admin-sidebar;
+    }
+    .admin-topbar {
+      view-transition-name: admin-topbar;
+    }
+    .admin-main {
+      view-transition-name: admin-main;
+    }
+    /* La page de login a son propre nom : sans ça, la petite boîte de
+       connexion serait APPARIÉE à la grande zone de contenu du dashboard
+       et le navigateur animerait un morph géométrique (étirement) très
+       disgracieux. Nom distinct = pas d'appariement = simple fondu. */
+    .login-page {
+      view-transition-name: admin-login;
+    }
+
+    /* Micro-interactions : survols et focus adoucis, appui de bouton. */
+    .admin-sidebar a,
+    .admin-main button,
+    .admin-main .badge,
+    .admin-main a {
+      transition:
+        background-color 0.15s ease,
+        border-color 0.15s ease,
+        color 0.15s ease,
+        filter 0.15s ease;
+    }
+    .admin-main button:active {
+      transform: translateY(1px);
+    }
+    .admin-main input,
+    .admin-main textarea,
+    .admin-main select {
+      transition: border-color 0.15s ease;
+    }
+    .admin-main :is(input, textarea, select):focus-visible {
+      border-color: var(--admin-accent);
+      outline: none;
+    }
+
+    /* Apparition du contenu des îlots (Chargement… → données)
+       et des blocs ajoutés dynamiquement (éditeur de paragraphes). */
+    .admin-main :is(table, form.stack, section, .paragraph-item) {
+      animation: admin-appear 0.18s ease-out both;
+    }
+
+    /* Modale médias : fondu + léger zoom à l'ouverture, backdrop en fondu.
+       100% natif : transition depuis @starting-style, `allow-discrete`
+       pour animer display/overlay du <dialog>. */
+    .admin-main .media-modal {
+      opacity: 0;
+      transform: translateY(10px) scale(0.98);
+      transition:
+        opacity 0.18s ease,
+        transform 0.18s ease,
+        overlay 0.18s ease allow-discrete,
+        display 0.18s ease allow-discrete;
+    }
+    .admin-main .media-modal[open] {
+      opacity: 1;
+      transform: none;
+    }
+    .admin-main .media-modal::backdrop {
+      opacity: 0;
+      transition:
+        opacity 0.18s ease,
+        overlay 0.18s ease allow-discrete,
+        display 0.18s ease allow-discrete;
+    }
+    .admin-main .media-modal[open]::backdrop {
+      opacity: 1;
+    }
+    @starting-style {
+      .admin-main .media-modal[open] {
+        opacity: 0;
+        transform: translateY(10px) scale(0.98);
+      }
+      .admin-main .media-modal[open]::backdrop {
+        opacity: 0;
+      }
+    }
+  }
+
+  @keyframes admin-appear {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+  }
+}
+
+/* Active les view transitions cross-document (navigation MPA native).
+   Hors @layer : les at-rules @view-transition et ::view-transition-*
+   ciblent la racine, pas la cascade admin. */
+@view-transition {
+  navigation: auto;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* Pas de fondu global : seule la zone de contenu s'anime. */
+  ::view-transition-old(root),
+  ::view-transition-new(root),
+  ::view-transition-old(admin-sidebar),
+  ::view-transition-new(admin-sidebar),
+  ::view-transition-old(admin-topbar),
+  ::view-transition-new(admin-topbar) {
+    animation: none;
+  }
+
+  ::view-transition-old(admin-main) {
+    animation: admin-vt-out 0.09s ease-in both;
+  }
+  ::view-transition-new(admin-main) {
+    animation: admin-vt-in 0.16s ease-out 0.05s both;
+  }
+
+  /* Login ⇄ admin : simple fondu, jamais de morph.
+     La boîte de connexion (admin-login) n'existe que d'un côté de la
+     transition : elle sort/entre en fondu. */
+  ::view-transition-old(admin-login) {
+    animation: admin-vt-out 0.12s ease-in both;
+  }
+  ::view-transition-new(admin-login) {
+    animation: admin-vt-fade-in 0.16s ease-out both;
+  }
+
+  /* Sidebar/topbar : statiques entre deux pages admin (appariées, animation
+     none ci-dessus), mais fondu doux quand elles APPARAISSENT (login →
+     dashboard) ou DISPARAISSENT (déconnexion) — :only-child = pas de
+     contrepartie sur l'autre page. */
+  ::view-transition-new(admin-sidebar):only-child,
+  ::view-transition-new(admin-topbar):only-child {
+    animation: admin-vt-fade-in 0.16s ease-out both;
+  }
+  ::view-transition-old(admin-sidebar):only-child,
+  ::view-transition-old(admin-topbar):only-child {
+    animation: admin-vt-out 0.12s ease-in both;
+  }
+}
+
+@keyframes admin-vt-out {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes admin-vt-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+/* Fondu pur, sans glissement — pour le shell et la boîte de login. */
+@keyframes admin-vt-fade-in {
+  from {
+    opacity: 0;
+  }
+}

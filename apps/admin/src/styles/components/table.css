@@ -1,0 +1,25 @@
+/*
+ * Tableaux de liste (primitive DataTable).
+ */
+@layer admin {
+  .admin-main table {
+    width: 100%;
+    margin-block: var(--admin-space-5);
+    background: var(--admin-surface);
+    border: 1px solid var(--admin-border);
+    border-radius: var(--admin-radius);
+    overflow: hidden;
+  }
+
+  .admin-main th,
+  .admin-main td {
+    text-align: left;
+    padding: var(--admin-space-3) var(--admin-space-4);
+    border-bottom: 1px solid var(--admin-border);
+    vertical-align: top;
+  }
+
+  .admin-main tr:last-child td {
+    border-bottom: none;
+  }
+}
