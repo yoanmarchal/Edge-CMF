@@ -546,6 +546,13 @@
     .admin-main {
       view-transition-name: admin-main;
     }
+    /* La page de login a son propre nom : sans ça, la petite boîte de
+       connexion serait APPARIÉE à la grande zone de contenu du dashboard
+       et le navigateur animerait un morph géométrique (étirement) très
+       disgracieux. Nom distinct = pas d'appariement = simple fondu. */
+    .login-page {
+      view-transition-name: admin-login;
+    }
 
     /* Micro-interactions : survols et focus adoucis, appui de bouton. */
     .admin-sidebar a,
@@ -669,6 +676,29 @@
   ::view-transition-new(admin-main) {
     animation: admin-vt-in 0.16s ease-out 0.05s both;
   }
+
+  /* Login ⇄ admin : simple fondu, jamais de morph.
+     La boîte de connexion (admin-login) n'existe que d'un côté de la
+     transition : elle sort/entre en fondu. */
+  ::view-transition-old(admin-login) {
+    animation: admin-vt-out 0.12s ease-in both;
+  }
+  ::view-transition-new(admin-login) {
+    animation: admin-vt-fade-in 0.16s ease-out both;
+  }
+
+  /* Sidebar/topbar : statiques entre deux pages admin (appariées, animation
+     none ci-dessus), mais fondu doux quand elles APPARAISSENT (login →
+     dashboard) ou DISPARAISSENT (déconnexion) — :only-child = pas de
+     contrepartie sur l'autre page. */
+  ::view-transition-new(admin-sidebar):only-child,
+  ::view-transition-new(admin-topbar):only-child {
+    animation: admin-vt-fade-in 0.16s ease-out both;
+  }
+  ::view-transition-old(admin-sidebar):only-child,
+  ::view-transition-old(admin-topbar):only-child {
+    animation: admin-vt-out 0.12s ease-in both;
+  }
 }
 
 @keyframes admin-vt-out {
@@ -680,5 +710,11 @@
   from {
     opacity: 0;
     transform: translateY(6px);
+  }
+}
+/* Fondu pur, sans glissement — pour le shell et la boîte de login. */
+@keyframes admin-vt-fade-in {
+  from {
+    opacity: 0;
   }
 }
