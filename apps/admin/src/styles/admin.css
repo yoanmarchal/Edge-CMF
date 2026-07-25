@@ -118,9 +118,60 @@
     grid-area: main;
     padding: 2rem;
     max-width: 90rem;
+  }
+
+  /* ------------------------------------------------------------------
+     En-tête d'écran — rendu en SSR par AdminShell (fil d'Ariane, titre,
+     description). Les îlots `client:only` ne portent plus de <h1> : la
+     page affichait sinon une zone vide jusqu'au démarrage du JS.
+     ------------------------------------------------------------------ */
+  .admin-main .page-head {
+    margin-bottom: 1.5rem;
 
     h1 {
-      margin-bottom: 1.5rem;
+      display: flex;
+      align-items: baseline;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-block: 0;
+    }
+
+    p {
+      margin-block: 0.4rem 0;
+      max-width: 60ch;
+    }
+  }
+
+  .admin-main .page-breadcrumb {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    margin-bottom: 0.75rem;
+    font-size: 0.9em;
+    color: var(--admin-muted);
+
+    a {
+      color: inherit;
+    }
+    > svg.lucide {
+      opacity: 0.6;
+    }
+  }
+
+  /* Lien d'évitement : hors écran jusqu'à réception du focus clavier. */
+  .skip-link {
+    position: absolute;
+    left: -100vw;
+    top: 0;
+    z-index: 10;
+    padding: 0.5rem 0.75rem;
+    background: var(--admin-accent);
+    color: var(--admin-accent-fg);
+    border-radius: 0 0 var(--admin-radius) 0;
+
+    &:focus-visible {
+      left: 0;
     }
   }
 
@@ -258,6 +309,19 @@
   }
   .admin-main button.badge.danger {
     color: var(--admin-danger);
+  }
+
+  /* État vide d'une liste — jamais un tableau réduit à ses en-têtes. */
+  .admin-main .empty-state {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 1.25rem;
+    margin-block: 1rem;
+    color: var(--admin-muted);
+    background: var(--admin-surface);
+    border: 1px dashed var(--admin-border);
+    border-radius: var(--admin-radius);
   }
 
   .admin-main .section-head {

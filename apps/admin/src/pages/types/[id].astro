@@ -11,6 +11,9 @@ const { id } = Astro.params;
 if (id === undefined || !/^[a-z][a-z0-9_]*$/.test(id)) return Astro.redirect('/types');
 ---
 
-<AdminShell title={`${id} — CMF Edge Admin`} user={session.user}>
+{/* Pas de fil d'Ariane ici : la section parente (/types ou /paragraphs)
+    dépend du `kind` du bundle, que seule l'îlot connaît une fois chargé.
+    C'est le seul écran qui garde un lien retour côté client. */}
+<AdminShell title={id} user={session.user}>
   <TypeDetail client:only="preact" id={id} />
 </AdminShell>

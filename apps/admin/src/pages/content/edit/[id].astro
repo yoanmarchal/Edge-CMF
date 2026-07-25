@@ -10,6 +10,10 @@ const { id } = Astro.params;
 if (id === undefined) return Astro.redirect('/content');
 ---
 
-<AdminShell title="Éditer un contenu — CMF Edge Admin" user={session.user}>
+<AdminShell
+  title="Éditer un contenu"
+  user={session.user}
+  breadcrumb={[{ label: 'Contenu', href: '/content' }]}
+>
   <ContentForm client:only="preact" mode="edit" nodeId={id} />
 </AdminShell>

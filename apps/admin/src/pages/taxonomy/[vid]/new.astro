@@ -11,6 +11,11 @@ const { vid } = Astro.params;
 if (vid === undefined) return Astro.redirect('/taxonomy');
 ---
 
-<AdminShell title="Nouveau terme — CMF Edge Admin" user={session.user}>
+<AdminShell
+  title="Nouveau terme"
+  user={session.user}
+  chip={vid}
+  breadcrumb={[{ label: 'Taxonomie', href: '/taxonomy' }]}
+>
   <TermCreateForm client:only="preact" vid={vid} />
 </AdminShell>

@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { useRef } from 'preact/hooks';
 import { FileText, Music, Upload, Video } from 'lucide-preact';
-import type { MediaItem, MediaListResult } from '@edge-cmf/shared-types';
-import { adminApi } from './lib/adminApi';
-import { ActionButton, Loading, LoadMoreButton, Notice } from './lib/ui';
+import { api, type MediaItem } from './lib/contract';
+import { useCursorList, useMutation } from './lib/hooks';
+import { ActionButton, EmptyState, Loading, LoadMoreButton, Notice } from './lib/ui';
+import { humanSize, mediaFileUrl } from './lib/media';
 
 const KIND_LABEL = { image: 'Image', document: 'Document', audio: 'Audio', video: 'Vidéo' } as const;
 const KIND_ICON = { image: FileText, document: FileText, audio: Music, video: Video } as const;
@@ -18,94 +19,76 @@ function MediaTile({ kind }: { kind: MediaItem['kind'] }) {
   );
 }
 
-function humanSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} o`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} Ko`;
-  return `${(bytes / 1024 / 1024).toFixed(1)} Mo`;
-}
-
 export default function MediaLibrary({ canWrite }: { canWrite: boolean }) {
-  const [items, setItems] = useState<MediaItem[] | null>(null);
-  const [cursor, setCursor] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const media = useCursorList<MediaItem>((cursor) => api.media.list(60, cursor ?? undefined));
+  const upload = useMutation();
   const fileInput = useRef<HTMLInputElement>(null);
 
-  const load = (after: string | null = null) => {
-    const qs = after !== null ? `&cursor=${encodeURIComponent(after)}` : '';
-    adminApi
-      .get<MediaListResult>(`/api/media?limit=60${qs}`)
-      .then((res) => {
-        setItems((prev) => (after !== null && prev !== null ? [...prev, ...res.data] : res.data));
-        setCursor(res.cursor);
-      })
-      .catch((e: Error) => setError(e.message));
-  };
-
-  useEffect(() => load(), []);
-
-  const upload = async (e: Event) => {
+  const send = (e: Event) => {
     const input = e.currentTarget as HTMLInputElement;
     const files = input.files;
     if (files === null || files.length === 0) return;
-    setBusy(true);
-    setError(null);
-    try {
-      for (const file of Array.from(files)) {
-        const form = new FormData();
-        form.append('file', file);
-        await adminApi.postForm('/api/media', form);
-      }
-      load();
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setBusy(false);
-      input.value = '';
-    }
+    void upload
+      .run(
+        async () => {
+          // Envoi séquentiel : R2 encaisse mal une rafale de PUT concurrents
+          // depuis un seul isolate, et l'ordre d'affichage reste prévisible.
+          for (const file of Array.from(files)) {
+            const form = new FormData();
+            form.append('file', file);
+            await api.media.upload(form);
+          }
+        },
+        { onDone: media.reload },
+      )
+      .finally(() => {
+        input.value = '';
+      });
   };
+
+  const error = media.error ?? upload.error;
 
   return (
     <>
-      <h1>Médias</h1>
-      <p class="muted">
-        Fichiers stockés sur R2 et servis par le front sous <code>/media/…</code>. « Copier l'URL » colle le chemin
-        public à utiliser dans les contenus.
-      </p>
+      {/* Titre et description : rendus en SSR par la page (AdminShell). */}
       {error !== null && <Notice kind="error">Erreur : {error}</Notice>}
 
       {canWrite && (
         <p class="action-row">
-          <ActionButton icon={Upload} badge disabled={busy} onClick={() => fileInput.current?.click()}>
-            {busy ? 'Envoi en cours…' : 'Téléverser des fichiers'}
+          <ActionButton icon={Upload} badge disabled={upload.busy} onClick={() => fileInput.current?.click()}>
+            {upload.busy ? 'Envoi en cours…' : 'Téléverser des fichiers'}
           </ActionButton>
-          <input ref={fileInput} type="file" multiple hidden onChange={upload} />
+          <input ref={fileInput} type="file" multiple hidden onChange={send} />
         </p>
       )}
 
-      {items === null ? (
-        <Loading />
-      ) : items.length === 0 ? (
-        <p>Aucun média.</p>
-      ) : (
-        <div class="card-grid media-grid">
-          {items.map((m) => (
-            <a class="media-card" href={`/media/${m.key}`} key={m.key} title={m.key}>
-              {m.kind === 'image' ? (
-                <img class="media-thumb" src={`/api/media/file/${m.key}?v=${encodeURIComponent(m.uploaded)}`} alt={m.alt} loading="lazy" />
-              ) : (
-                <MediaTile kind={m.kind} />
-              )}
-              <strong class="media-name">{m.originalName}</strong>
-              <span class="muted">
-                {m.contentType} · {humanSize(m.size)}
-              </span>
-            </a>
-          ))}
-        </div>
-      )}
+      {media.loading && <Loading />}
+      {media.items !== null &&
+        (media.items.length === 0 ? (
+          <EmptyState>
+            {canWrite
+              ? 'Bibliothèque vide — téléversez un premier fichier.'
+              : 'Bibliothèque vide.'}
+          </EmptyState>
+        ) : (
+          <div class="card-grid media-grid">
+            {media.items.map((m) => (
+              <a class="media-card" href={`/media/${m.key}`} key={m.key} title={m.key}>
+                {m.kind === 'image' ? (
+                  <img class="media-thumb" src={mediaFileUrl(m.key, m.uploaded)} alt={m.alt} loading="lazy" />
+                ) : (
+                  <MediaTile kind={m.kind} />
+                )}
+                <strong class="media-name">{m.originalName}</strong>
+                <span class="muted">
+                  {m.contentType} · {humanSize(m.size)}
+                </span>
+              </a>
+            ))}
+          </div>
+        ))}
 
-      {cursor !== null && <LoadMoreButton onClick={() => load(cursor)} />}
+      {media.cursor !== null && <LoadMoreButton onClick={media.loadMore} />}
     </>
   );
 }

@@ -1,13 +1,19 @@
-import { useEffect, useState } from 'preact/hooks';
+import { useState } from 'preact/hooks';
 import { Plus, Trash2 } from 'lucide-preact';
 import type { FieldDef, FieldType } from '@edge-cmf/shared-types';
-import { adminApi } from './lib/adminApi';
-import { ActionButton, BackLink, Loading, Notice, RemoveButton, SubmitButton } from './lib/ui';
-
-interface TypeDetailData {
-  type: { id: string; label: string; description: string; kind: 'node' | 'paragraph' };
-  fields: FieldDef[];
-}
+import { api } from './lib/contract';
+import { useMutation, useResource } from './lib/hooks';
+import {
+  ActionButton,
+  AsyncView,
+  BackLink,
+  DataTable,
+  EmptyState,
+  Field,
+  Notice,
+  RemoveButton,
+  SubmitButton,
+} from './lib/ui';
 
 const FIELD_TYPES: { value: FieldType; label: string }[] = [
   { value: 'text', label: 'Texte court' },
@@ -22,183 +28,178 @@ const FIELD_TYPES: { value: FieldType; label: string }[] = [
 ];
 
 export default function TypeDetail({ id }: { id: string }) {
-  const [detail, setDetail] = useState<TypeDetailData | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const detail = useResource(() => api.types.detail(id), [id]);
+  const mutation = useMutation();
 
   const [name, setName] = useState('');
-  const [flabel, setFlabel] = useState('');
+  const [label, setLabel] = useState('');
   const [fieldType, setFieldType] = useState<FieldType>('text');
   const [options, setOptions] = useState('');
   const [required, setRequired] = useState(false);
   const [multiple, setMultiple] = useState(false);
   const [weight, setWeight] = useState(0);
 
-  const reload = () => {
-    adminApi
-      .get<{ success: true; data: TypeDetailData }>(`/api/types?id=${id}`)
-      .then((res) => setDetail(res.data))
-      .catch((e: Error) => setError(e.message));
+  const resetForm = () => {
+    setName('');
+    setLabel('');
+    setOptions('');
+    setRequired(false);
+    setMultiple(false);
+    setWeight(0);
   };
 
-  useEffect(reload, [id]);
-
-  const addField = async (e: Event) => {
+  const addField = (e: Event) => {
     e.preventDefault();
-    try {
-      await adminApi.post('/api/types', {
-        _action: 'create-field',
-        contentTypeId: id,
-        name,
-        label: flabel,
-        fieldType,
-        options,
-        required,
-        multiple,
-        weight,
-      });
-      setName('');
-      setFlabel('');
-      setOptions('');
-      setRequired(false);
-      setMultiple(false);
-      setWeight(0);
-      reload();
-    } catch (e) {
-      setError((e as Error).message);
-    }
+    void mutation.run(
+      () => api.types.createField({ contentTypeId: id, name, label, fieldType, options, required, multiple, weight }),
+      {
+        onDone: () => {
+          resetForm();
+          detail.reload();
+        },
+      },
+    );
   };
 
-  const deleteField = async (fieldId: string, fieldName: string) => {
-    // Destructif : les valeurs déjà saisies dans ce champ sur les contenus
-    // existants deviennent inaccessibles. Confirmation obligatoire.
-    if (!confirm(`Supprimer le champ « ${fieldName} » ? Les valeurs déjà saisies seront perdues.`)) return;
-    try {
-      await adminApi.post('/api/types', { _action: 'delete-field', id: fieldId });
-      reload();
-    } catch (e) {
-      setError((e as Error).message);
-    }
-  };
+  const removeField = (field: FieldDef) =>
+    void mutation.run(() => api.types.removeField(field.id), {
+      // Destructif : les valeurs déjà saisies dans ce champ sur les contenus
+      // existants deviennent inaccessibles.
+      confirm: `Supprimer le champ « ${field.label} » ? Les valeurs déjà saisies seront perdues.`,
+      onDone: detail.reload,
+    });
 
-  const deleteType = async () => {
-    if (detail === null || !confirm('Supprimer ce type ?')) return;
-    try {
-      await adminApi.post('/api/types', { _action: 'delete-type', id: detail.type.id });
-      const backTo = detail.type.kind === 'paragraph' ? '/paragraphs' : '/types';
-      window.location.href = `${backTo}?ok=type-supprime`;
-    } catch (e) {
-      setError((e as Error).message);
-    }
-  };
-
-  if (error !== null && detail === null) return <Notice kind="error">Erreur : {error}</Notice>;
-  if (detail === null) return <Loading />;
-
-  const isParagraph = detail.type.kind === 'paragraph';
-  const backUrl = isParagraph ? '/paragraphs' : '/types';
+  const removeType = (isParagraph: boolean) =>
+    void mutation.run(() => api.types.remove(id), {
+      confirm: 'Supprimer ce type ?',
+      redirect: { to: isParagraph ? '/paragraphs' : '/types', flash: 'type-supprime' },
+    });
 
   return (
     <>
-      <BackLink href={backUrl}>{isParagraph ? 'Types de paragraphes' : 'Types de contenu'}</BackLink>
-      <h1>
-        {detail.type.label} <code class="muted">{detail.type.id}</code>{' '}
-        <span class="badge">{isParagraph ? 'Paragraphe' : 'Nœud'}</span>
-      </h1>
-      {detail.type.description !== '' && <p class="muted">{detail.type.description}</p>}
-      {error !== null && <Notice kind="error">Erreur : {error}</Notice>}
+      {mutation.error !== null && <Notice kind="error">Erreur : {mutation.error}</Notice>}
 
-      <h2>Champs</h2>
-      {detail.fields.length === 0 && <p class="muted">Aucun champ pour le moment.</p>}
-      {detail.fields.length > 0 && (
-        <table>
-          <thead>
-            <tr>
-              <th>Champ</th>
-              <th>Libellé</th>
-              <th>Type</th>
-              <th>Requis</th>
-              <th>Options</th>
-              <th>Poids</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {detail.fields.map((f) => (
-              <tr key={f.id}>
-                <td>
-                  <code>{f.name}</code>
-                </td>
-                <td>{f.label}</td>
-                <td>
-                  {f.fieldType}
-                  {f.settings.multiple === true && <span class="badge">multiple</span>}
-                </td>
-                <td>{f.required ? 'oui' : 'non'}</td>
-                <td class="muted">{f.settings.options?.join(', ') ?? ''}</td>
-                <td>{f.weight}</td>
-                <td>
-                  <RemoveButton title="Supprimer ce champ" onClick={() => deleteField(f.id, f.label)} />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+      <AsyncView resource={detail}>
+        {({ type, fields }) => {
+          const isParagraph = type.kind === 'paragraph';
+          return (
+            <>
+              {/* Le titre (nom machine) est rendu en SSR par la page. Le lien
+                  retour reste ici : la section parente dépend du `kind`, que
+                  seul l'îlot connaît une fois le type chargé. */}
+              <BackLink href={isParagraph ? '/paragraphs' : '/types'}>
+                {isParagraph ? 'Types de paragraphes' : 'Types de contenu'}
+              </BackLink>
+              <p>
+                <strong>{type.label}</strong>{' '}
+                <span class="badge">{isParagraph ? 'Paragraphe' : 'Nœud'}</span>
+              </p>
+              {type.description !== '' && <p class="muted">{type.description}</p>}
 
-      <details open={detail.fields.length === 0}>
-        <summary>Ajouter un champ</summary>
-        <form class="stack" onSubmit={addField}>
-          <label class="field">
-            Nom machine
-            <input
-              value={name}
-              pattern="[a-z][a-z0-9_]*"
-              maxLength={64}
-              required
-              onInput={(e) => setName((e.currentTarget as HTMLInputElement).value)}
-            />
-          </label>
-          <label class="field">
-            Libellé
-            <input value={flabel} maxLength={255} required onInput={(e) => setFlabel((e.currentTarget as HTMLInputElement).value)} />
-          </label>
-          <label class="field">
-            Type de champ
-            <select value={fieldType} onChange={(e) => setFieldType((e.currentTarget as HTMLSelectElement).value as FieldType)}>
-              {FIELD_TYPES.map((ft) => (
-                <option key={ft.value} value={ft.value}>
-                  {ft.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label class="field">
-            Options (pour « Liste », séparées par des virgules)
-            <input
-              value={options}
-              placeholder="rouge, vert, bleu"
-              onInput={(e) => setOptions((e.currentTarget as HTMLInputElement).value)}
-            />
-          </label>
-          <label class="field-inline">
-            <input type="checkbox" checked={required} onChange={(e) => setRequired((e.currentTarget as HTMLInputElement).checked)} />{' '}
-            Requis
-          </label>
-          <label class="field-inline">
-            <input type="checkbox" checked={multiple} onChange={(e) => setMultiple((e.currentTarget as HTMLInputElement).checked)} />{' '}
-            Multiple — plusieurs valeurs itérables (liste)
-          </label>
-          <label class="field">
-            Poids
-            <input type="number" value={weight} onInput={(e) => setWeight(Number((e.currentTarget as HTMLInputElement).value))} />
-          </label>
-          <SubmitButton icon={Plus}>Ajouter</SubmitButton>
-        </form>
-      </details>
+              <h2>Champs</h2>
+              {fields.length === 0 ? (
+                <EmptyState>Aucun champ — ce type ne portera que le titre, le slug et le corps.</EmptyState>
+              ) : (
+                <DataTable
+                  rows={fields}
+                  rowKey={(f) => f.id}
+                  columns={[
+                    { header: 'Champ', cell: (f) => <code>{f.name}</code> },
+                    { header: 'Libellé', cell: (f) => f.label },
+                    {
+                      header: 'Type',
+                      cell: (f) => (
+                        <>
+                          {f.fieldType}
+                          {f.settings.multiple === true && <span class="badge">multiple</span>}
+                        </>
+                      ),
+                    },
+                    { header: 'Requis', cell: (f) => (f.required ? 'oui' : 'non') },
+                    { header: 'Options', cell: (f) => f.settings.options?.join(', ') ?? '', muted: true },
+                    { header: 'Poids', cell: (f) => f.weight },
+                    {
+                      cell: (f) => <RemoveButton title="Supprimer ce champ" onClick={() => removeField(f)} />,
+                    },
+                  ]}
+                />
+              )}
 
-      <ActionButton icon={Trash2} danger onClick={() => void deleteType()}>
-        Supprimer ce type
-      </ActionButton>
+              <details open={fields.length === 0}>
+                <summary>Ajouter un champ</summary>
+                <form class="stack" onSubmit={addField}>
+                  <Field label="Nom machine" hint="(a-z, 0-9, _)">
+                    <input
+                      value={name}
+                      pattern="[a-z][a-z0-9_]*"
+                      maxLength={64}
+                      required
+                      onInput={(e) => setName((e.currentTarget as HTMLInputElement).value)}
+                    />
+                  </Field>
+                  <Field label="Libellé">
+                    <input
+                      value={label}
+                      maxLength={255}
+                      required
+                      onInput={(e) => setLabel((e.currentTarget as HTMLInputElement).value)}
+                    />
+                  </Field>
+                  <Field label="Type de champ">
+                    <select
+                      value={fieldType}
+                      onChange={(e) => setFieldType((e.currentTarget as HTMLSelectElement).value as FieldType)}
+                    >
+                      {FIELD_TYPES.map((ft) => (
+                        <option key={ft.value} value={ft.value}>
+                          {ft.label}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field label="Options" hint="(pour « Sélection », séparées par des virgules)">
+                    <input
+                      value={options}
+                      placeholder="rouge, vert, bleu"
+                      onInput={(e) => setOptions((e.currentTarget as HTMLInputElement).value)}
+                    />
+                  </Field>
+                  <label class="field-inline">
+                    <input
+                      type="checkbox"
+                      checked={required}
+                      onChange={(e) => setRequired((e.currentTarget as HTMLInputElement).checked)}
+                    />{' '}
+                    Requis
+                  </label>
+                  <label class="field-inline">
+                    <input
+                      type="checkbox"
+                      checked={multiple}
+                      onChange={(e) => setMultiple((e.currentTarget as HTMLInputElement).checked)}
+                    />{' '}
+                    Multiple — plusieurs valeurs itérables (liste)
+                  </label>
+                  <Field label="Poids">
+                    <input
+                      type="number"
+                      value={weight}
+                      onInput={(e) => setWeight(Number((e.currentTarget as HTMLInputElement).value))}
+                    />
+                  </Field>
+                  <SubmitButton icon={Plus} saving={mutation.busy}>
+                    Ajouter
+                  </SubmitButton>
+                </form>
+              </details>
+
+              <ActionButton icon={Trash2} danger disabled={mutation.busy} onClick={() => removeType(isParagraph)}>
+                Supprimer ce type
+              </ActionButton>
+            </>
+          );
+        }}
+      </AsyncView>
     </>
   );
 }

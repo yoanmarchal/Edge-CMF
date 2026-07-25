@@ -1,179 +1,150 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { Check, Copy, ExternalLink, RefreshCw, Save, Trash2 } from 'lucide-preact';
-import type { MediaItem } from '@edge-cmf/shared-types';
-import { adminApi } from './lib/adminApi';
-import { ActionButton, ActionLink, BackLink, Loading, Notice } from './lib/ui';
+import { api } from './lib/contract';
+import { useMutation, useResource } from './lib/hooks';
+import { ActionButton, ActionLink, AsyncView, Notice } from './lib/ui';
+import { humanSize, mediaFileUrl, publicMediaUrl } from './lib/media';
 
 const KIND_LABEL = { image: 'Image', document: 'Document', audio: 'Audio', video: 'Vidéo' } as const;
 
-function humanSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} o`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} Ko`;
-  return `${(bytes / 1024 / 1024).toFixed(1)} Mo`;
-}
-
 export default function MediaDetail({ mediaKey, canWrite }: { mediaKey: string; canWrite: boolean }) {
-  const [item, setItem] = useState<MediaItem | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const media = useResource(() => api.media.detail(mediaKey), [mediaKey]);
+  const mutation = useMutation();
+
   const [alt, setAlt] = useState('');
-  const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [replacing, setReplacing] = useState(false);
   const replaceInput = useRef<HTMLInputElement>(null);
 
+  // Le champ d'alternative textuelle se recale sur la valeur chargée, sans
+  // écraser une saisie en cours (le rechargement suit un enregistrement).
+  const loadedAlt = media.data?.alt;
   useEffect(() => {
-    adminApi
-      .get<{ data: MediaItem }>(`/api/media?key=${encodeURIComponent(mediaKey)}`)
-      .then((res) => {
-        setItem(res.data);
-        setAlt(res.data.alt);
-      })
-      .catch((e: Error) => setError(e.message));
-  }, [mediaKey]);
+    if (loadedAlt !== undefined) setAlt(loadedAlt);
+  }, [loadedAlt]);
 
-  // `?v=<date d'upload>` : URL unique par version → l'aperçu admin reflète
-  // immédiatement un remplacement, sans attendre l'expiration du cache.
-  const fileUrl = `/api/media/file/${mediaKey}${item !== null ? `?v=${encodeURIComponent(item.uploaded)}` : ''}`;
-  const publicUrl = `/media/${mediaKey}`;
-
-  const replace = async (e: Event) => {
+  const replace = (e: Event) => {
     const input = e.currentTarget as HTMLInputElement;
     const file = input.files?.[0];
     if (file === undefined) return;
-    setReplacing(true);
-    setError(null);
-    try {
-      const form = new FormData();
-      form.append('file', file);
-      const res = await adminApi.postForm<{ success: true; data: MediaItem }>(
-        `/api/media?key=${encodeURIComponent(mediaKey)}`,
-        form,
-      );
-      setItem(res.data);
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setReplacing(false);
-      input.value = '';
-    }
+    const form = new FormData();
+    form.append('file', file);
+    void mutation
+      .run(() => api.media.replace(mediaKey, form), { onDone: media.reload })
+      .finally(() => {
+        input.value = '';
+      });
   };
 
-  const saveAlt = async () => {
-    setSaving(true);
-    try {
-      await adminApi.put('/api/media', { key: mediaKey, alt });
-      setItem((prev) => (prev === null ? prev : { ...prev, alt }));
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setSaving(false);
-    }
-  };
+  const saveAlt = () => void mutation.run(() => api.media.setAlt(mediaKey, alt), { onDone: media.reload });
 
-  const remove = async () => {
-    if (!confirm('Supprimer ce média ? Les contenus qui l’utilisent perdront le fichier.')) return;
-    try {
-      await adminApi.delete(`/api/media?key=${encodeURIComponent(mediaKey)}`);
-      window.location.href = '/media?ok=media-supprime';
-    } catch (e) {
-      setError((e as Error).message);
-    }
-  };
+  const remove = () =>
+    void mutation.run(() => api.media.remove(mediaKey), {
+      confirm: 'Supprimer ce média ? Les contenus qui l’utilisent perdront le fichier.',
+      redirect: { to: '/media', flash: 'media-supprime' },
+    });
 
   const copy = () => {
-    void navigator.clipboard.writeText(publicUrl);
+    void navigator.clipboard.writeText(publicMediaUrl(mediaKey));
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   };
 
-  if (error !== null && item === null) {
-    return (
-      <>
-        <h1>Média</h1>
-        <BackLink href="/media">Retour à la bibliothèque</BackLink>
-        <Notice kind="error">Erreur : {error}</Notice>
-      </>
-    );
-  }
-  if (item === null) return <Loading />;
-
   return (
     <>
-      <h1>{item.originalName}</h1>
-      <BackLink href="/media">Retour à la bibliothèque</BackLink>
-      {error !== null && <Notice kind="error">Erreur : {error}</Notice>}
+      {/* Titre et fil d'Ariane : rendus en SSR par la page (AdminShell). */}
+      {mutation.error !== null && <Notice kind="error">Erreur : {mutation.error}</Notice>}
 
-      <div class="media-detail">
-        <div class="media-detail-preview">
-          {item.kind === 'image' && <img src={fileUrl} alt={item.alt} />}
-          {item.kind === 'video' && <video src={fileUrl} controls />}
-          {item.kind === 'audio' && <audio src={fileUrl} controls />}
-          {item.kind === 'document' && (
-            <ActionLink icon={ExternalLink} href={fileUrl} external>
-              Ouvrir le document
-            </ActionLink>
-          )}
-        </div>
+      <AsyncView resource={media}>
+        {(item) => {
+          // URL versionnée : un remplacement change l'URL, donc l'aperçu
+          // reflète le nouveau fichier sans attendre l'expiration du cache.
+          const fileUrl = mediaFileUrl(mediaKey, item.uploaded);
+          return (
+            <>
+              <p>
+                <strong>{item.originalName}</strong>
+              </p>
 
-        <div class="stack">
-          <dl class="media-meta">
-            <dt>Type</dt>
-            <dd>
-              {KIND_LABEL[item.kind]} — <code>{item.contentType}</code>
-            </dd>
-            <dt>Poids</dt>
-            <dd>{humanSize(item.size)}</dd>
-            <dt>Téléversé le</dt>
-            <dd>{new Date(item.uploaded).toLocaleString('fr-FR')}</dd>
-            <dt>URL publique</dt>
-            <dd>
-              <code>{publicUrl}</code>
-            </dd>
-          </dl>
+              <div class="media-detail">
+                <div class="media-detail-preview">
+                  {item.kind === 'image' && <img src={fileUrl} alt={item.alt} />}
+                  {item.kind === 'video' && <video src={fileUrl} controls />}
+                  {item.kind === 'audio' && <audio src={fileUrl} controls />}
+                  {item.kind === 'document' && (
+                    <ActionLink icon={ExternalLink} href={fileUrl} external>
+                      Ouvrir le document
+                    </ActionLink>
+                  )}
+                </div>
 
-          <p class="action-row">
-            <ActionButton icon={copied ? Check : Copy} badge onClick={copy}>
-              {copied ? 'Copié' : "Copier l'URL"}
-            </ActionButton>
-            {canWrite && (
-              <>
-                <ActionButton icon={RefreshCw} badge disabled={replacing} onClick={() => replaceInput.current?.click()}>
-                  {replacing ? 'Remplacement…' : 'Remplacer le fichier'}
-                </ActionButton>
-                <input ref={replaceInput} type="file" hidden onChange={replace} />
-                <ActionButton icon={Trash2} badge danger onClick={() => void remove()}>
-                  Supprimer
-                </ActionButton>
-              </>
-            )}
-          </p>
-          {canWrite && (
-            <p class="muted">
-              Le remplacement garde la même URL publique : les contenus qui référencent ce média affichent
-              automatiquement le nouveau fichier (même type requis).
-            </p>
-          )}
+                <div class="stack">
+                  <dl class="media-meta">
+                    <dt>Type</dt>
+                    <dd>
+                      {KIND_LABEL[item.kind]} — <code>{item.contentType}</code>
+                    </dd>
+                    <dt>Poids</dt>
+                    <dd>{humanSize(item.size)}</dd>
+                    <dt>Téléversé le</dt>
+                    <dd>{new Date(item.uploaded).toLocaleString('fr-FR')}</dd>
+                    <dt>URL publique</dt>
+                    <dd>
+                      <code>{publicMediaUrl(mediaKey)}</code>
+                    </dd>
+                  </dl>
 
-          {canWrite && item.kind === 'image' && (
-            <label class="field">
-              Texte alternatif
-              <input
-                value={alt}
-                maxLength={512}
-                placeholder="Description de l'image pour l'accessibilité"
-                onInput={(e) => setAlt((e.currentTarget as HTMLInputElement).value)}
-              />
-            </label>
-          )}
-          {canWrite && item.kind === 'image' && alt !== item.alt && (
-            <p class="action-row">
-              <ActionButton icon={Save} disabled={saving} onClick={() => void saveAlt()}>
-                Enregistrer
-              </ActionButton>
-            </p>
-          )}
-        </div>
-      </div>
+                  <p class="action-row">
+                    <ActionButton icon={copied ? Check : Copy} badge onClick={copy}>
+                      {copied ? 'Copié' : "Copier l'URL"}
+                    </ActionButton>
+                    {canWrite && (
+                      <>
+                        <ActionButton
+                          icon={RefreshCw}
+                          badge
+                          disabled={mutation.busy}
+                          onClick={() => replaceInput.current?.click()}
+                        >
+                          {mutation.busy ? 'Opération en cours…' : 'Remplacer le fichier'}
+                        </ActionButton>
+                        <input ref={replaceInput} type="file" hidden onChange={replace} />
+                        <ActionButton icon={Trash2} badge danger disabled={mutation.busy} onClick={remove}>
+                          Supprimer
+                        </ActionButton>
+                      </>
+                    )}
+                  </p>
+                  {canWrite && (
+                    <p class="muted">
+                      Le remplacement garde la même URL publique : les contenus qui référencent ce média affichent
+                      automatiquement le nouveau fichier (même type requis).
+                    </p>
+                  )}
+
+                  {canWrite && item.kind === 'image' && (
+                    <label class="field">
+                      Texte alternatif
+                      <input
+                        value={alt}
+                        maxLength={512}
+                        placeholder="Description de l'image pour l'accessibilité"
+                        onInput={(e) => setAlt((e.currentTarget as HTMLInputElement).value)}
+                      />
+                    </label>
+                  )}
+                  {canWrite && item.kind === 'image' && alt !== item.alt && (
+                    <p class="action-row">
+                      <ActionButton icon={Save} disabled={mutation.busy} onClick={saveAlt}>
+                        Enregistrer
+                      </ActionButton>
+                    </p>
+                  )}
+                </div>
+              </div>
+            </>
+          );
+        }}
+      </AsyncView>
     </>
   );
 }

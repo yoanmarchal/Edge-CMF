@@ -8,6 +8,10 @@ if (session === null) return Astro.redirect('/');
 if (session.user.role !== 'admin') return Astro.redirect('/?error=droits');
 ---
 
-<AdminShell title="Nouveau type de paragraphe — CMF Edge Admin" user={session.user}>
+<AdminShell
+  title="Nouveau type de paragraphe"
+  user={session.user}
+  breadcrumb={[{ label: 'Types de paragraphes', href: '/paragraphs' }]}
+>
   <TypeCreateForm client:only="preact" kind="paragraph" />
 </AdminShell>

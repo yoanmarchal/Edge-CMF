@@ -9,6 +9,10 @@ if (session === null || !canWrite(session.user)) return Astro.redirect('/');
 const typeId = Astro.url.searchParams.get('type') ?? 'page';
 ---
 
-<AdminShell title="Nouveau contenu — CMF Edge Admin" user={session.user}>
+<AdminShell
+  title="Nouveau contenu"
+  user={session.user}
+  breadcrumb={[{ label: 'Contenu', href: '/content' }]}
+>
   <ContentForm client:only="preact" mode="new" typeId={typeId} />
 </AdminShell>

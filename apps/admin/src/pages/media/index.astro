@@ -7,6 +7,10 @@ const session = await getSessionUser(Astro.cookies);
 if (session === null) return Astro.redirect('/');
 ---
 
-<AdminShell title="Médias — CMF Edge Admin" user={session.user}>
+<AdminShell
+  title="Médias"
+  user={session.user}
+  description="Fichiers stockés sur R2 et servis par le front sous /media/…. « Copier l'URL » colle le chemin public à utiliser dans les contenus."
+>
   <MediaLibrary client:only="preact" canWrite={canWrite(session.user)} />
 </AdminShell>

@@ -27,8 +27,7 @@ const session = await getSessionUser(Astro.cookies);
     </form>
   </Login>
 ) : (
-  <AdminShell title="Tableau de bord — CMF Edge Admin" user={session.user}>
-    <h1>Tableau de bord</h1>
+  <AdminShell title="Tableau de bord" user={session.user}>
     <Dashboard client:only="preact" />
   </AdminShell>
 )}

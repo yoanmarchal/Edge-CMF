@@ -8,6 +8,10 @@ if (session === null) return Astro.redirect('/');
 if (session.user.role !== 'admin') return Astro.redirect('/?error=droits');
 ---
 
-<AdminShell title="Types de paragraphes — CMF Edge Admin" user={session.user}>
+<AdminShell
+  title="Types de paragraphes"
+  user={session.user}
+  description="Composants structurés réutilisables dans tous les contenus (équivalent Paragraphs de Drupal). Chaque type défini ici apparaît comme bloc ajoutable dans l'éditeur."
+>
   <TypesList client:only="preact" kind="paragraph" />
 </AdminShell>

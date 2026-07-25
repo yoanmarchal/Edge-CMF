@@ -14,14 +14,32 @@ import {
   Users,
   Palette,
   LogOut,
+  ChevronRight,
 } from 'lucide-preact';
 import type { LucideIcon } from 'lucide-preact';
 
+export interface Crumb {
+  readonly label: string;
+  readonly href: string;
+}
+
 interface Props {
+  /**
+   * Titre de l'écran — sert À LA FOIS au <title> et au <h1>. Déclaré ici et
+   * nulle part ailleurs : les îlots ne rendent plus de <h1>. Comme ils sont
+   * montés en `client:only`, un titre à l'intérieur laissait la page
+   * entièrement blanche jusqu'au démarrage du JS.
+   */
   title: string;
   user: UserContext;
+  /** Pastille technique à droite du titre (nom machine, identifiant…). */
+  chip?: string;
+  /** Phrase d'introduction sous le titre. */
+  description?: string;
+  /** Fil d'Ariane — remplace les liens « retour » réinventés par écran. */
+  breadcrumb?: readonly Crumb[];
 }
-const { title, user } = Astro.props;
+const { title, user, chip, description, breadcrumb } = Astro.props;
 const path = Astro.url.pathname;
 
 type NavIcon = LucideIcon;
@@ -46,7 +64,7 @@ const nav: { href: string; label: string; icon: NavIcon }[] = [
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{title}</title>
+    <title>{title} — CMF Edge Admin</title>
 
     <!-- L'admin est full-size et n'a pas de thème front : design system
          totalement séparé (admin.css), jamais mélangé au site public.
@@ -56,6 +74,9 @@ const nav: { href: string; label: string; icon: NavIcon }[] = [
     <link rel="stylesheet" href="/reset.css" />
   </head>
   <body class="admin">
+    <!-- Lien d'évitement : première cible de tabulation, permet d'atteindre le
+         contenu sans traverser toute la navigation latérale. -->
+    <a class="skip-link" href="#contenu">Aller au contenu</a>
     <div class="admin-shell">
       <aside class="admin-sidebar">
         <div class="admin-brand">CMF Edge — Admin</div>
@@ -75,8 +96,29 @@ const nav: { href: string; label: string; icon: NavIcon }[] = [
           </button>
         </form>
       </header>
-      <main class="admin-main">
+      <main class="admin-main" id="contenu">
         <Flash />
+
+        {breadcrumb !== undefined && breadcrumb.length > 0 && (
+          <nav class="page-breadcrumb" aria-label="Fil d'Ariane">
+            {breadcrumb.map((crumb) => (
+              <>
+                <a href={crumb.href}>{crumb.label}</a>
+                <ChevronRight size={13} aria-hidden={true} />
+              </>
+            ))}
+            <span aria-current="page">{title}</span>
+          </nav>
+        )}
+
+        <header class="page-head">
+          <h1>
+            {title}
+            {chip !== undefined && <code class="muted">{chip}</code>}
+          </h1>
+          {description !== undefined && <p class="muted">{description}</p>}
+        </header>
+
         <slot />
       </main>
     </div>

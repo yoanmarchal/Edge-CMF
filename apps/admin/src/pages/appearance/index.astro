@@ -8,6 +8,10 @@ if (session === null) return Astro.redirect('/');
 if (session.user.role !== 'admin') return Astro.redirect('/?error=droits');
 ---
 
-<AdminShell title="Apparence — CMF Edge Admin" user={session.user}>
+<AdminShell
+  title="Apparence"
+  user={session.user}
+  description="Thème du site public : le thème de base définit les tokens, les thèmes enfants ne surchargent que ce qu'ils changent."
+>
   <Appearance client:only="preact" />
 </AdminShell>

@@ -668,4 +668,13 @@ app.onError((err, c) => c.json({ success: false as const, error: err.message }, 
 
 // Exportation vitale pour le Front-End et le Gateway
 export type ContentAPI = typeof routes;
+
+/**
+ * Types de lignes exportés pour les CONSOMMATEURS (admin, front) : ils y
+ * dérivent la forme des réponses au lieu de la redéclarer à la main. Export
+ * de types uniquement — rien n'atterrit dans le bundle client.
+ * Voir `apps/admin/src/islands/lib/contract.ts`.
+ */
+export type { ContentNode, ContentTypeRow, TermRow, VocabularyRow } from './schema';
+
 export default app;

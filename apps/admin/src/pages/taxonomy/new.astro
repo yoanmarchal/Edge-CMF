@@ -8,6 +8,10 @@ if (session === null) return Astro.redirect('/');
 if (!canWrite(session.user)) return Astro.redirect('/?error=droits');
 ---
 
-<AdminShell title="Nouveau vocabulaire — CMF Edge Admin" user={session.user}>
+<AdminShell
+  title="Nouveau vocabulaire"
+  user={session.user}
+  breadcrumb={[{ label: 'Taxonomie', href: '/taxonomy' }]}
+>
   <VocabCreateForm client:only="preact" />
 </AdminShell>

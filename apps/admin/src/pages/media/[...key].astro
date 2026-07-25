@@ -10,6 +10,10 @@ const { key } = Astro.params;
 if (key === undefined || key.length === 0) return Astro.redirect('/media');
 ---
 
-<AdminShell title="Média — CMF Edge Admin" user={session.user}>
+<AdminShell
+  title="Média"
+  user={session.user}
+  breadcrumb={[{ label: 'Médias', href: '/media' }]}
+>
   <MediaDetail client:only="preact" mediaKey={key} canWrite={canWrite(session.user)} />
 </AdminShell>

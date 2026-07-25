@@ -1,64 +1,54 @@
-import { useEffect, useState } from 'preact/hooks';
-import { adminApi } from './lib/adminApi';
-import { BackLink, Notice, SubmitButton } from './lib/ui';
-
-interface Vocabulary {
-  id: string;
-  label: string;
-}
+import { useState } from 'preact/hooks';
+import { api } from './lib/contract';
+import { useMutation, useResource } from './lib/hooks';
+import { Field, FormScreen, Notice } from './lib/ui';
 
 export default function TermCreateForm({ vid }: { vid: string }) {
-  const [vocabLabel, setVocabLabel] = useState<string | null>(null);
   const [label, setLabel] = useState('');
   const [slug, setSlug] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
+  const mutation = useMutation();
 
-  useEffect(() => {
-    adminApi
-      .get<{ data: Vocabulary[] }>('/api/taxonomy')
-      .then((res) => {
-        const vocab = res.data.find((v) => v.id === vid);
-        if (vocab === undefined) {
-          setError(`Vocabulaire inconnu : ${vid}`);
-        } else {
-          setVocabLabel(vocab.label);
-        }
-      })
-      .catch((e: Error) => setError(e.message));
-  }, [vid]);
+  // Le vocabulaire n'est chargé que pour vérifier qu'il existe et en afficher
+  // le libellé : la page a déjà rendu le titre et le nom machine en SSR.
+  const vocabularies = useResource(() => api.taxonomy.list());
+  const vocabulary = vocabularies.data?.find((v) => v.id === vid) ?? null;
+  const unknownVocabulary = vocabularies.data !== null && vocabulary === null;
 
-  const create = async (e: Event) => {
+  const create = (e: Event) => {
     e.preventDefault();
-    setSaving(true);
-    try {
-      await adminApi.post('/api/taxonomy', { _action: 'create-term', vocabularyId: vid, label, slug });
-      window.location.href = '/taxonomy?ok=terme-cree';
-    } catch (e) {
-      setError((e as Error).message);
-      setSaving(false);
-    }
+    void mutation.run(() => api.taxonomy.createTerm({ vocabularyId: vid, label, slug }), {
+      redirect: { to: '/taxonomy', flash: 'terme-cree' },
+    });
   };
+
+  if (unknownVocabulary) return <Notice kind="error">Vocabulaire inconnu : {vid}</Notice>;
 
   return (
     <>
-      <h1>
-        Nouveau terme — {vocabLabel ?? vid} <code class="muted">{vid}</code>
-      </h1>
-      <BackLink href="/taxonomy">Retour à la taxonomie</BackLink>
-      {error !== null && <Notice kind="error">Erreur : {error}</Notice>}
-
-      <form class="stack" onSubmit={create}>
-        <label class="field">
-          Terme
-          <input value={label} maxLength={255} required onInput={(e) => setLabel((e.currentTarget as HTMLInputElement).value)} />
-        </label>
-        <label class="field">
-          Slug
-          <input value={slug} pattern="[a-z0-9-]+" required onInput={(e) => setSlug((e.currentTarget as HTMLInputElement).value)} />
-        </label>
-        <SubmitButton saving={saving}>Ajouter</SubmitButton>
-      </form>
+      {vocabulary !== null && <p class="muted">Vocabulaire : {vocabulary.label}</p>}
+      <FormScreen
+        onSubmit={create}
+        saving={mutation.busy}
+        error={mutation.error ?? vocabularies.error}
+        submitLabel="Ajouter"
+      >
+        <Field label="Terme">
+          <input
+            value={label}
+            maxLength={255}
+            required
+            onInput={(e) => setLabel((e.currentTarget as HTMLInputElement).value)}
+          />
+        </Field>
+        <Field label="Slug" hint="(a-z, 0-9, tirets)">
+          <input
+            value={slug}
+            pattern="[a-z0-9-]+"
+            required
+            onInput={(e) => setSlug((e.currentTarget as HTMLInputElement).value)}
+          />
+        </Field>
+      </FormScreen>
     </>
   );
 }

@@ -1,58 +1,29 @@
-import { useEffect, useState } from 'preact/hooks';
 import { CircleCheck, CircleDashed, Plus, Trash2 } from 'lucide-preact';
-import { adminApi } from './lib/adminApi';
-import { ActionButton, ActionLink, IconLabel, Loading, Notice } from './lib/ui';
-
-interface NodeRow {
-  id: string;
-  title: string;
-  slug: string;
-  contentType: string;
-  status: boolean;
-}
-interface TypeRow {
-  id: string;
-  label: string;
-}
+import { api, type AdminNode, type ContentTypeSummary } from './lib/contract';
+import { useMutation, useResource } from './lib/hooks';
+import { ActionButton, ActionLink, AsyncView, DataTable, IconLabel, Notice } from './lib/ui';
 
 export default function ContentList({ canWrite }: { canWrite: boolean }) {
-  const [nodes, setNodes] = useState<NodeRow[] | null>(null);
-  const [types, setTypes] = useState<TypeRow[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const nodes = useResource(() => api.nodes.list());
+  const types = useResource(() => api.types.list('node'));
+  const mutation = useMutation();
 
-  const reload = () => {
-    Promise.all([
-      adminApi.get<{ data: NodeRow[] }>('/api/nodes'),
-      adminApi.get<{ data: TypeRow[] }>('/api/types?kind=node'),
-    ])
-      .then(([n, t]) => {
-        setNodes(n.data);
-        setTypes(t.data);
-      })
-      .catch((e: Error) => setError(e.message));
-  };
+  const remove = (node: AdminNode) =>
+    void mutation.run(() => api.nodes.remove(node.id), {
+      confirm: `Supprimer le contenu « ${node.title} » ?`,
+      onDone: nodes.reload,
+    });
 
-  useEffect(reload, []);
-
-  const remove = async (id: string) => {
-    if (!confirm('Supprimer ce contenu ?')) return;
-    try {
-      await adminApi.post('/api/nodes', { _action: 'delete', id });
-      reload();
-    } catch (e) {
-      setError((e as Error).message);
-    }
-  };
+  const typeList: ContentTypeSummary[] = types.data ?? [];
 
   return (
     <>
-      <h1>Contenu</h1>
-      {error !== null && <Notice kind="error">Erreur : {error}</Notice>}
+      {mutation.error !== null && <Notice kind="error">Erreur : {mutation.error}</Notice>}
 
-      {canWrite && types.length > 0 && (
+      {canWrite && typeList.length > 0 && (
         <p class="action-row">
           <span>Créer :</span>
-          {types.map((t) => (
+          {typeList.map((t) => (
             <ActionLink key={t.id} icon={Plus} href={`/content/new?type=${t.id}`}>
               {t.label}
             </ActionLink>
@@ -60,53 +31,47 @@ export default function ContentList({ canWrite }: { canWrite: boolean }) {
         </p>
       )}
 
-      {nodes === null ? (
-        <Loading />
-      ) : (
-        <>
-          <table>
-            <thead>
-              <tr>
-                <th>Titre</th>
-                <th>Type</th>
-                <th>Statut</th>
-                <th>Slug</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {nodes.map((n) => (
-                <tr key={n.id}>
-                  <td>
-                    <a href={`/content/edit/${n.id}`}>{n.title}</a>
-                  </td>
-                  <td>{n.contentType}</td>
-                  <td>
-                    {n.status ? (
-                      <IconLabel icon={CircleCheck} class="status-ok">
-                        Publié
-                      </IconLabel>
-                    ) : (
-                      <IconLabel icon={CircleDashed} class="muted">
-                        Brouillon
-                      </IconLabel>
-                    )}
-                  </td>
-                  <td class="muted">/{n.slug}</td>
-                  <td>
-                    {canWrite && (
-                      <ActionButton icon={Trash2} danger onClick={() => remove(n.id)}>
-                        Supprimer
-                      </ActionButton>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {nodes.length === 0 && <p>Aucun contenu.</p>}
-        </>
-      )}
+      <AsyncView
+        resource={nodes}
+        empty={
+          typeList.length === 0
+            ? "Aucun contenu, et aucun type de contenu défini : commencez par en créer un dans « Types de contenu »."
+            : 'Aucun contenu pour le moment.'
+        }
+      >
+        {(rows: AdminNode[]) => (
+          <DataTable
+            rows={rows}
+            rowKey={(n) => n.id}
+            columns={[
+              { header: 'Titre', cell: (n) => <a href={`/content/edit/${n.id}`}>{n.title}</a> },
+              { header: 'Type', cell: (n) => n.contentType },
+              {
+                header: 'Statut',
+                cell: (n) =>
+                  n.status ? (
+                    <IconLabel icon={CircleCheck} class="status-ok">
+                      Publié
+                    </IconLabel>
+                  ) : (
+                    <IconLabel icon={CircleDashed} class="muted">
+                      Brouillon
+                    </IconLabel>
+                  ),
+              },
+              { header: 'Slug', cell: (n) => `/${n.slug}`, muted: true },
+              {
+                cell: (n) =>
+                  canWrite ? (
+                    <ActionButton icon={Trash2} danger disabled={mutation.busy} onClick={() => remove(n)}>
+                      Supprimer
+                    </ActionButton>
+                  ) : null,
+              },
+            ]}
+          />
+        )}
+      </AsyncView>
     </>
   );
 }

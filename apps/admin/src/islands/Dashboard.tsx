@@ -1,24 +1,17 @@
-import { useEffect, useState } from 'preact/hooks';
 import { Blocks, FileText, Shapes } from 'lucide-preact';
-import type { ContentStats } from '@edge-cmf/shared-types';
-import { adminApi } from './lib/adminApi';
+import { api } from './lib/contract';
+import { useResource } from './lib/hooks';
 import { IconLabel, Loading, Notice } from './lib/ui';
 
 export default function Dashboard() {
-  const [stats, setStats] = useState<ContentStats | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
   // Comptage en SQL côté worker : trois listes chargées puis mesurées en
   // `.length` donnaient un total faux dès 100 contenus (limite de la route).
-  useEffect(() => {
-    adminApi
-      .get<{ data: ContentStats }>('/api/stats')
-      .then((res) => setStats(res.data))
-      .catch((e: Error) => setError(e.message));
-  }, []);
+  const stats = useResource(() => api.stats());
 
-  if (error !== null) return <Notice kind="error">Erreur : {error}</Notice>;
-  if (stats === null) return <Loading />;
+  if (stats.error !== null) return <Notice kind="error">Erreur : {stats.error}</Notice>;
+  if (stats.data === null) return <Loading />;
+
+  const { nodes, publishedNodes, types, paragraphTypes } = stats.data;
 
   return (
     <>
@@ -26,21 +19,21 @@ export default function Dashboard() {
         <li>
           <a href="/content">
             <IconLabel icon={FileText} size={16}>
-              {stats.nodes} contenu(s) — dont {stats.publishedNodes} publié(s)
+              {nodes} contenu(s) — dont {publishedNodes} publié(s)
             </IconLabel>
           </a>
         </li>
         <li>
           <a href="/types">
             <IconLabel icon={Shapes} size={16}>
-              {stats.types} type(s) de contenu
+              {types} type(s) de contenu
             </IconLabel>
           </a>
         </li>
         <li>
           <a href="/paragraphs">
             <IconLabel icon={Blocks} size={16}>
-              {stats.paragraphTypes} type(s) de paragraphe
+              {paragraphTypes} type(s) de paragraphe
             </IconLabel>
           </a>
         </li>
