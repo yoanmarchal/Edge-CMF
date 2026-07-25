@@ -9,7 +9,7 @@ Exporte `export type ContentAPI = typeof routes` pour les clients RPC.
 
 | Méthode | Route | Rôle |
 |---|---|---|
-| GET | `/api/types?kind=` | Liste des types (node/paragraph) |
+| GET | `/api/types?kind=&expand=fields` | Liste des types (node/paragraph) ; `expand=fields` joint la Field API de chaque type en une requête |
 | GET | `/api/types/:id` | Type + définitions de champs |
 | POST | `/api/types` | Créer un type |
 | DELETE | `/api/types/:id` | Supprimer un type (cascade champs) |
@@ -26,6 +26,7 @@ Exporte `export type ContentAPI = typeof routes` pour les clients RPC.
 | POST | `/api/nodes` | Créer (validation dynamique des champs + paragraphes) |
 | PUT | `/api/nodes/:id` | Mettre à jour (partiel) |
 | DELETE | `/api/nodes/:id` | Supprimer |
+| GET | `/api/stats` | Compteurs du tableau de bord (`count()` SQL : nœuds, publiés, types, types de paragraphe) |
 | GET | `/api/settings/:key` | Lire un réglage |
 | PUT | `/api/settings/:key` | Écrire un réglage |
 

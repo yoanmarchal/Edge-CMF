@@ -1,17 +1,19 @@
 ---
 import Login from '../layouts/Login.astro';
 import AdminShell from '../layouts/AdminShell.astro';
+import Flash from '../components/Flash.astro';
 import Dashboard from '../islands/Dashboard';
 import { getSessionUser } from '../lib/session';
 
 const session = await getSessionUser(Astro.cookies);
-const error = Astro.url.searchParams.get('error');
 ---
 
 {session === null ? (
   <Login title="Connexion — CMF Edge Admin">
     <h1>Administration</h1>
-    {error !== null && <p class="notice error">Erreur : {error}</p>}
+    {/* Même mécanisme que dans AdminShell : les échecs de connexion arrivent
+        en `?error=identifiants|validation` depuis /api/login. */}
+    <Flash />
     <form method="post" action="/api/login" class="stack">
       <label class="field">
         Email

@@ -3,7 +3,7 @@ import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
 import { drizzle } from 'drizzle-orm/d1';
 import type { DrizzleD1Database } from 'drizzle-orm/d1';
-import { and, asc, desc, eq, inArray } from 'drizzle-orm';
+import { and, asc, count, desc, eq, inArray } from 'drizzle-orm';
 import {
   insertNodeSchema,
   updateNodeSchema,
@@ -19,6 +19,7 @@ import {
   fieldTypeEnum,
   fieldSettingsSchema,
   buildFieldValuesSchema,
+  type ContentStats,
   type FieldDef,
   type InsertParagraph,
 } from '@edge-cmf/shared-types';
@@ -233,13 +234,51 @@ app.use('/api/*', async (c, next) => {
 const routes = app
   // ------------------------- Content Types (Field UI) ----------------------
   .get('/api/types', zValidator('query', listTypesQuerySchema), async (c) => {
-    const { kind } = c.req.valid('query');
+    const { kind, expand } = c.req.valid('query');
     const db = drizzle(c.env.DB);
-    const data = await db
+    const types = await db
       .select()
       .from(contentTypes)
       .where(kind !== undefined ? eq(contentTypes.kind, kind) : undefined)
       .orderBy(asc(contentTypes.id));
+
+    if (expand !== 'fields') return c.json({ data: types });
+
+    // Une seule requête pour TOUS les champs, puis regroupement en mémoire —
+    // même stratégie que /api/vocabularies avec ses termes.
+    const ids = types.map((t) => t.id);
+    const rows =
+      ids.length === 0
+        ? []
+        : await db
+            .select()
+            .from(fields)
+            .where(inArray(fields.contentTypeId, ids))
+            .orderBy(asc(fields.weight), asc(fields.name));
+    const defs = rows.map(rowToFieldDef);
+    return c.json({
+      data: types.map((t) => ({ ...t, fields: defs.filter((f) => f.contentTypeId === t.id) })),
+    });
+  })
+
+  /**
+   * Compteurs du tableau de bord — comptés en SQL. L'admin les déduisait de
+   * la longueur des listes renvoyées, or celles-ci sont plafonnées à 100.
+   */
+  .get('/api/stats', async (c) => {
+    const db = drizzle(c.env.DB);
+    const [[nodes], [published], [nodeTypes], [paragraphTypes]] = await Promise.all([
+      db.select({ n: count() }).from(contentNodes),
+      db.select({ n: count() }).from(contentNodes).where(eq(contentNodes.status, true)),
+      db.select({ n: count() }).from(contentTypes).where(eq(contentTypes.kind, 'node')),
+      db.select({ n: count() }).from(contentTypes).where(eq(contentTypes.kind, 'paragraph')),
+    ]);
+    const data: ContentStats = {
+      nodes: nodes?.n ?? 0,
+      publishedNodes: published?.n ?? 0,
+      types: nodeTypes?.n ?? 0,
+      paragraphTypes: paragraphTypes?.n ?? 0,
+    };
     return c.json({ data });
   })
 

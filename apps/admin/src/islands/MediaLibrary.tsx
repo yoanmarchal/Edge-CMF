@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { ChevronDown, FileText, Music, Upload, Video } from 'lucide-preact';
+import { FileText, Music, Upload, Video } from 'lucide-preact';
 import type { MediaItem, MediaListResult } from '@edge-cmf/shared-types';
 import { adminApi } from './lib/adminApi';
-import { ActionButton, Loading, Notice } from './lib/ui';
+import { ActionButton, Loading, LoadMoreButton, Notice } from './lib/ui';
 
 const KIND_LABEL = { image: 'Image', document: 'Document', audio: 'Audio', video: 'Vidéo' } as const;
 const KIND_ICON = { image: FileText, document: FileText, audio: Music, video: Video } as const;
@@ -105,13 +105,7 @@ export default function MediaLibrary({ canWrite }: { canWrite: boolean }) {
         </div>
       )}
 
-      {cursor !== null && (
-        <p class="action-row">
-          <ActionButton icon={ChevronDown} onClick={() => load(cursor)}>
-            Charger plus
-          </ActionButton>
-        </p>
-      )}
+      {cursor !== null && <LoadMoreButton onClick={() => load(cursor)} />}
     </>
   );
 }

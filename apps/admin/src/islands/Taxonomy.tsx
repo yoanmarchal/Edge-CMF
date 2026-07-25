@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'preact/hooks';
+import { Plus, Trash2 } from 'lucide-preact';
 import { adminApi } from './lib/adminApi';
-import { Loading, Notice } from './lib/ui';
+import { ActionButton, ActionLink, Loading, Notice, RemoveButton } from './lib/ui';
 
 interface Term {
   id: string;
@@ -36,7 +37,11 @@ export default function Taxonomy() {
     }
   };
 
-  const deleteTerm = async (id: string) => {
+  const deleteTerm = async (id: string, label: string) => {
+    // Suppression immédiate côté serveur : elle se confirme, comme celle du
+    // vocabulaire. Seul le retrait d'un paragraphe reste sans confirmation —
+    // il n'est persisté qu'à l'enregistrement du formulaire de contenu.
+    if (!confirm(`Supprimer le terme « ${label} » ?`)) return;
     try {
       await adminApi.post('/api/taxonomy', { _action: 'delete-term', id });
       reload();
@@ -52,15 +57,17 @@ export default function Taxonomy() {
       {error !== null && <Notice kind="error">Erreur : {error}</Notice>}
 
       <p class="action-row">
-        <a class="badge" href="/taxonomy/new">
-          + Nouveau vocabulaire
-        </a>
+        <ActionLink icon={Plus} href="/taxonomy/new">
+          Nouveau vocabulaire
+        </ActionLink>
       </p>
 
       {vocabularies === null ? (
         <Loading />
       ) : (
-        vocabularies.map((v) => <VocabSection v={v} onDeleteVocab={deleteVocab} onDeleteTerm={deleteTerm} />)
+        vocabularies.map((v) => (
+          <VocabSection key={v.id} v={v} onDeleteVocab={deleteVocab} onDeleteTerm={deleteTerm} />
+        ))
       )}
     </>
   );
@@ -73,7 +80,7 @@ function VocabSection({
 }: {
   v: Vocabulary;
   onDeleteVocab: (id: string) => void;
-  onDeleteTerm: (id: string) => void;
+  onDeleteTerm: (id: string, label: string) => void;
 }) {
   return (
     <section>
@@ -81,9 +88,9 @@ function VocabSection({
         <h2>
           {v.label} <code class="muted">{v.id}</code>
         </h2>
-        <button type="button" class="badge danger" onClick={() => onDeleteVocab(v.id)}>
+        <ActionButton icon={Trash2} badge danger onClick={() => onDeleteVocab(v.id)}>
           Supprimer le vocabulaire
-        </button>
+        </ActionButton>
       </div>
 
       <table>
@@ -96,13 +103,11 @@ function VocabSection({
         </thead>
         <tbody>
           {v.terms.map((t) => (
-            <tr>
+            <tr key={t.id}>
               <td>{t.label}</td>
               <td class="muted">{t.slug}</td>
               <td>
-                <button type="button" class="danger" onClick={() => onDeleteTerm(t.id)}>
-                  ×
-                </button>
+                <RemoveButton title="Supprimer ce terme" onClick={() => onDeleteTerm(t.id, t.label)} />
               </td>
             </tr>
           ))}
@@ -110,9 +115,9 @@ function VocabSection({
       </table>
 
       <p class="action-row">
-        <a class="badge" href={`/taxonomy/${v.id}/new`}>
-          + Nouveau terme
-        </a>
+        <ActionLink icon={Plus} href={`/taxonomy/${v.id}/new`}>
+          Nouveau terme
+        </ActionLink>
       </p>
     </section>
   );

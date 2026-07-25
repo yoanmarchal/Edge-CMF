@@ -1,7 +1,8 @@
 import { useRef, useState } from 'preact/hooks';
+import { ImagePlus, Pencil, X } from 'lucide-preact';
 import type { MediaItem, MediaListResult } from '@edge-cmf/shared-types';
 import { adminApi } from './lib/adminApi';
-import { Loading } from './lib/ui';
+import { ActionButton, Loading, LoadMoreButton, Notice } from './lib/ui';
 
 const IMAGE_RE = /\.(jpe?g|png|webp|avif|gif|svg)$/i;
 
@@ -60,19 +61,19 @@ export default function MediaPicker({ value, clearable, onValue }: Props) {
             <span class="badge">Fichier</span>
           )}
           <code>{value}</code>
-          <button type="button" class="badge" onClick={openModal}>
+          <ActionButton icon={Pencil} badge onClick={openModal}>
             Changer
-          </button>
+          </ActionButton>
           {clearable && (
-            <button type="button" class="badge danger" onClick={() => onValue(undefined)}>
+            <ActionButton icon={X} badge danger onClick={() => onValue(undefined)}>
               Retirer
-            </button>
+            </ActionButton>
           )}
         </div>
       ) : (
-        <button type="button" class="badge" onClick={openModal}>
+        <ActionButton icon={ImagePlus} badge onClick={openModal}>
           Choisir un média
-        </button>
+        </ActionButton>
       )}
 
       <dialog
@@ -85,13 +86,13 @@ export default function MediaPicker({ value, clearable, onValue }: Props) {
       >
         <header class="media-modal-head">
           <h2>Bibliothèque de médias</h2>
-          <button type="button" class="badge" onClick={close}>
-            Fermer ✕
-          </button>
+          <ActionButton icon={X} badge onClick={close}>
+            Fermer
+          </ActionButton>
         </header>
 
         <div class="media-modal-body">
-          {error !== null && <p class="notice error">Erreur : {error}</p>}
+          {error !== null && <Notice kind="error">Erreur : {error}</Notice>}
           {items === null ? (
             <Loading />
           ) : items.length === 0 ? (
@@ -112,13 +113,7 @@ export default function MediaPicker({ value, clearable, onValue }: Props) {
               ))}
             </div>
           )}
-          {cursor !== null && (
-            <p class="action-row">
-              <button type="button" onClick={() => load(cursor)}>
-                Charger plus
-              </button>
-            </p>
-          )}
+          {cursor !== null && <LoadMoreButton onClick={() => load(cursor)} />}
         </div>
       </dialog>
     </div>

@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
+import { Check, Copy, ExternalLink, RefreshCw, Save, Trash2 } from 'lucide-preact';
 import type { MediaItem } from '@edge-cmf/shared-types';
 import { adminApi } from './lib/adminApi';
-import { Loading, Notice } from './lib/ui';
+import { ActionButton, ActionLink, BackLink, Loading, Notice } from './lib/ui';
 
 const KIND_LABEL = { image: 'Image', document: 'Document', audio: 'Audio', video: 'Vidéo' } as const;
 
@@ -73,7 +74,7 @@ export default function MediaDetail({ mediaKey, canWrite }: { mediaKey: string; 
     if (!confirm('Supprimer ce média ? Les contenus qui l’utilisent perdront le fichier.')) return;
     try {
       await adminApi.delete(`/api/media?key=${encodeURIComponent(mediaKey)}`);
-      window.location.href = '/media';
+      window.location.href = '/media?ok=media-supprime';
     } catch (e) {
       setError((e as Error).message);
     }
@@ -89,9 +90,7 @@ export default function MediaDetail({ mediaKey, canWrite }: { mediaKey: string; 
     return (
       <>
         <h1>Média</h1>
-        <p class="muted">
-          <a href="/media">← Retour à la bibliothèque</a>
-        </p>
+        <BackLink href="/media">Retour à la bibliothèque</BackLink>
         <Notice kind="error">Erreur : {error}</Notice>
       </>
     );
@@ -101,9 +100,7 @@ export default function MediaDetail({ mediaKey, canWrite }: { mediaKey: string; 
   return (
     <>
       <h1>{item.originalName}</h1>
-      <p class="muted">
-        <a href="/media">← Retour à la bibliothèque</a>
-      </p>
+      <BackLink href="/media">Retour à la bibliothèque</BackLink>
       {error !== null && <Notice kind="error">Erreur : {error}</Notice>}
 
       <div class="media-detail">
@@ -112,9 +109,9 @@ export default function MediaDetail({ mediaKey, canWrite }: { mediaKey: string; 
           {item.kind === 'video' && <video src={fileUrl} controls />}
           {item.kind === 'audio' && <audio src={fileUrl} controls />}
           {item.kind === 'document' && (
-            <a class="badge" href={fileUrl} target="_blank" rel="noopener">
-              Ouvrir le document ↗
-            </a>
+            <ActionLink icon={ExternalLink} href={fileUrl} external>
+              Ouvrir le document
+            </ActionLink>
           )}
         </div>
 
@@ -135,18 +132,18 @@ export default function MediaDetail({ mediaKey, canWrite }: { mediaKey: string; 
           </dl>
 
           <p class="action-row">
-            <button type="button" class="badge" onClick={copy}>
-              {copied ? 'Copié ✓' : "Copier l'URL"}
-            </button>
+            <ActionButton icon={copied ? Check : Copy} badge onClick={copy}>
+              {copied ? 'Copié' : "Copier l'URL"}
+            </ActionButton>
             {canWrite && (
               <>
-                <button type="button" class="badge" disabled={replacing} onClick={() => replaceInput.current?.click()}>
+                <ActionButton icon={RefreshCw} badge disabled={replacing} onClick={() => replaceInput.current?.click()}>
                   {replacing ? 'Remplacement…' : 'Remplacer le fichier'}
-                </button>
+                </ActionButton>
                 <input ref={replaceInput} type="file" hidden onChange={replace} />
-                <button type="button" class="badge danger" onClick={remove}>
+                <ActionButton icon={Trash2} badge danger onClick={() => void remove()}>
                   Supprimer
-                </button>
+                </ActionButton>
               </>
             )}
           </p>
@@ -170,9 +167,9 @@ export default function MediaDetail({ mediaKey, canWrite }: { mediaKey: string; 
           )}
           {canWrite && item.kind === 'image' && alt !== item.alt && (
             <p class="action-row">
-              <button type="button" disabled={saving} onClick={() => void saveAlt()}>
+              <ActionButton icon={Save} disabled={saving} onClick={() => void saveAlt()}>
                 Enregistrer
-              </button>
+              </ActionButton>
             </p>
           )}
         </div>

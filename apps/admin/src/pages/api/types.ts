@@ -6,6 +6,7 @@ import {
   machineNameSchema,
   fieldTypeEnum,
   typeKindEnum,
+  type TypeKind,
 } from '@edge-cmf/shared-types';
 import { contentClient, proxyResponse } from '../../lib/api';
 import { requireApiSession } from '../../lib/session';
@@ -26,7 +27,12 @@ export const GET: APIRoute = async ({ cookies, url }) => {
   }
 
   const kind = typeKindEnum.safeParse(url.searchParams.get('kind') ?? undefined);
-  return proxyResponse(await client.api.types.$get({ query: kind.success ? { kind: kind.data } : {} }));
+  const query: { kind?: TypeKind; expand?: 'fields' } = {};
+  if (kind.success) query.kind = kind.data;
+  // `?expand=fields` : la Field API de chaque type est jointe à la liste, ce
+  // qui évite au formulaire de contenu un appel par type de paragraphe.
+  if (url.searchParams.get('expand') === 'fields') query.expand = 'fields';
+  return proxyResponse(await client.api.types.$get({ query }));
 };
 
 export const POST: APIRoute = async ({ request, cookies }) => {

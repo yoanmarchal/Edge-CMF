@@ -79,7 +79,7 @@ export default function TypesList({ kind }: Props) {
           </thead>
           <tbody>
             {types.map((t) => (
-              <tr>
+              <tr key={t.id}>
                 <td>
                   <a href={`/types/${t.id}`}>{t.label}</a>
                 </td>

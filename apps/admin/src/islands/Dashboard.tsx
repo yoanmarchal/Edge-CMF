@@ -1,27 +1,19 @@
 import { useEffect, useState } from 'preact/hooks';
 import { Blocks, FileText, Shapes } from 'lucide-preact';
+import type { ContentStats } from '@edge-cmf/shared-types';
 import { adminApi } from './lib/adminApi';
 import { IconLabel, Loading, Notice } from './lib/ui';
 
-interface Stats {
-  nodes: number;
-  types: number;
-  paragraphTypes: number;
-}
-
 export default function Dashboard() {
-  const [stats, setStats] = useState<Stats | null>(null);
+  const [stats, setStats] = useState<ContentStats | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Comptage en SQL côté worker : trois listes chargées puis mesurées en
+  // `.length` donnaient un total faux dès 100 contenus (limite de la route).
   useEffect(() => {
-    Promise.all([
-      adminApi.get<{ data: unknown[] }>('/api/nodes'),
-      adminApi.get<{ data: unknown[] }>('/api/types?kind=node'),
-      adminApi.get<{ data: unknown[] }>('/api/types?kind=paragraph'),
-    ])
-      .then(([nodes, types, paragraphTypes]) =>
-        setStats({ nodes: nodes.data.length, types: types.data.length, paragraphTypes: paragraphTypes.data.length }),
-      )
+    adminApi
+      .get<{ data: ContentStats }>('/api/stats')
+      .then((res) => setStats(res.data))
       .catch((e: Error) => setError(e.message));
   }, []);
 
@@ -34,7 +26,7 @@ export default function Dashboard() {
         <li>
           <a href="/content">
             <IconLabel icon={FileText} size={16}>
-              {stats.nodes} contenu(s)
+              {stats.nodes} contenu(s) — dont {stats.publishedNodes} publié(s)
             </IconLabel>
           </a>
         </li>

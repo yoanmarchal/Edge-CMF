@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'preact/hooks';
 import { adminApi } from './lib/adminApi';
-import { Notice } from './lib/ui';
+import { BackLink, Notice, SubmitButton } from './lib/ui';
 
 interface Vocabulary {
   id: string;
@@ -33,7 +33,7 @@ export default function TermCreateForm({ vid }: { vid: string }) {
     setSaving(true);
     try {
       await adminApi.post('/api/taxonomy', { _action: 'create-term', vocabularyId: vid, label, slug });
-      window.location.href = '/taxonomy';
+      window.location.href = '/taxonomy?ok=terme-cree';
     } catch (e) {
       setError((e as Error).message);
       setSaving(false);
@@ -45,9 +45,7 @@ export default function TermCreateForm({ vid }: { vid: string }) {
       <h1>
         Nouveau terme — {vocabLabel ?? vid} <code class="muted">{vid}</code>
       </h1>
-      <p class="muted">
-        <a href="/taxonomy">← Retour à la taxonomie</a>
-      </p>
+      <BackLink href="/taxonomy">Retour à la taxonomie</BackLink>
       {error !== null && <Notice kind="error">Erreur : {error}</Notice>}
 
       <form class="stack" onSubmit={create}>
@@ -59,9 +57,7 @@ export default function TermCreateForm({ vid }: { vid: string }) {
           Slug
           <input value={slug} pattern="[a-z0-9-]+" required onInput={(e) => setSlug((e.currentTarget as HTMLInputElement).value)} />
         </label>
-        <button type="submit" disabled={saving}>
-          Ajouter
-        </button>
+        <SubmitButton saving={saving}>Ajouter</SubmitButton>
       </form>
     </>
   );

@@ -1,7 +1,7 @@
 import { useState } from 'preact/hooks';
 import type { Role } from '@edge-cmf/shared-types';
 import { adminApi } from './lib/adminApi';
-import { Notice } from './lib/ui';
+import { BackLink, Notice, SubmitButton } from './lib/ui';
 
 const ROLES: Role[] = ['admin', 'editor', 'viewer'];
 
@@ -17,7 +17,7 @@ export default function UserCreateForm() {
     setSaving(true);
     try {
       await adminApi.post('/api/users', { _action: 'create', email, password, role });
-      window.location.href = '/users';
+      window.location.href = '/users?ok=utilisateur-cree';
     } catch (e) {
       setError((e as Error).message);
       setSaving(false);
@@ -27,9 +27,7 @@ export default function UserCreateForm() {
   return (
     <>
       <h1>Nouvel utilisateur</h1>
-      <p class="muted">
-        <a href="/users">← Retour à la liste</a>
-      </p>
+      <BackLink href="/users">Retour à la liste</BackLink>
       {error !== null && <Notice kind="error">Erreur : {error}</Notice>}
 
       <form class="stack" onSubmit={create}>
@@ -51,13 +49,13 @@ export default function UserCreateForm() {
           Rôle
           <select value={role} onChange={(e) => setRole((e.currentTarget as HTMLSelectElement).value as Role)}>
             {ROLES.map((r) => (
-              <option value={r}>{r}</option>
+              <option key={r} value={r}>
+                {r}
+              </option>
             ))}
           </select>
         </label>
-        <button type="submit" disabled={saving}>
-          Créer
-        </button>
+        <SubmitButton saving={saving}>Créer</SubmitButton>
       </form>
     </>
   );

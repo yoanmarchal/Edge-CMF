@@ -37,6 +37,8 @@ export function buildCacheKey(signature: string, url: string): Request {
  * termes de taxonomie hydratés → elles dépendent aussi de `taxonomy`.
  */
 export function tagsForRead(pathname: string): readonly CacheTag[] {
+  // Les compteurs du tableau de bord agrègent nœuds ET types.
+  if (pathname.startsWith('/api/stats')) return ['content', 'types'];
   if (pathname.startsWith('/api/types') || pathname.startsWith('/api/fields')) return ['types'];
   if (pathname.startsWith('/api/node')) return ['content', 'taxonomy'];
   if (pathname.startsWith('/api/vocabularies') || pathname.startsWith('/api/terms'))

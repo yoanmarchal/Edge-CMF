@@ -14,6 +14,7 @@ Fichiers pensés pour être lus par l'IA (et les humains) avant toute modificati
 - [02-donnees.md](design/02-donnees.md) — schémas D1, R2, règles de migration
 - [03-cache.md](design/03-cache.md) — cache tags versionnés, page cache ETag/304
 - [04-auth.md](design/04-auth.md) — JWT/PBKDF2, session admin, RBAC, invariants de sécurité
+- [05-ui.md](design/05-ui.md) — audit de l'UI admin, architecture cible (contrat typé, hooks, primitives, tokens CSS), plan de refonte
 
 ## Skills — *workflows* (`.claude/skills/`)
 

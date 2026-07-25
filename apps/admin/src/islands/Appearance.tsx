@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'preact/hooks';
+import { Check, CircleCheck } from 'lucide-preact';
 import { adminApi } from './lib/adminApi';
-import { Loading, Notice } from './lib/ui';
+import { ActionButton, IconLabel, Loading, Notice } from './lib/ui';
 import { THEMES, THEME_SETTING_KEY, DEFAULT_THEME_ID } from '../lib/themes';
 
 export default function Appearance() {
@@ -47,11 +48,13 @@ export default function Appearance() {
               <strong>{t.label}</strong>
               <p class="muted">{t.description}</p>
               {t.id === active ? (
-                <span class="theme-active">✓ Thème actif</span>
+                <IconLabel icon={CircleCheck} class="theme-active">
+                  Thème actif
+                </IconLabel>
               ) : (
-                <button type="button" disabled={saving} onClick={() => activate(t.id)}>
+                <ActionButton icon={Check} disabled={saving} onClick={() => void activate(t.id)}>
                   Activer
-                </button>
+                </ActionButton>
               )}
             </div>
           ))}

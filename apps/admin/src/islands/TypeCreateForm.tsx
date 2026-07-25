@@ -1,6 +1,6 @@
 import { useState } from 'preact/hooks';
 import { adminApi } from './lib/adminApi';
-import { Notice } from './lib/ui';
+import { BackLink, Notice, SubmitButton } from './lib/ui';
 
 interface Props {
   kind: 'node' | 'paragraph';
@@ -25,7 +25,7 @@ export default function TypeCreateForm({ kind }: Props) {
     setSaving(true);
     try {
       await adminApi.post('/api/types', { _action: 'create-type', id, label, description, kind });
-      window.location.href = copy.backTo;
+      window.location.href = `${copy.backTo}?ok=type-cree`;
     } catch (e) {
       setError((e as Error).message);
       setSaving(false);
@@ -35,9 +35,7 @@ export default function TypeCreateForm({ kind }: Props) {
   return (
     <>
       <h1>{copy.title}</h1>
-      <p class="muted">
-        <a href={copy.backTo}>← Retour à la liste</a>
-      </p>
+      <BackLink href={copy.backTo}>Retour à la liste</BackLink>
       {error !== null && <Notice kind="error">Erreur : {error}</Notice>}
 
       <form class="stack" onSubmit={create}>
@@ -64,9 +62,7 @@ export default function TypeCreateForm({ kind }: Props) {
             onInput={(e) => setDescription((e.currentTarget as HTMLInputElement).value)}
           />
         </label>
-        <button type="submit" disabled={saving}>
-          Créer
-        </button>
+        <SubmitButton saving={saving}>Créer</SubmitButton>
       </form>
     </>
   );

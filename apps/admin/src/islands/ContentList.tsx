@@ -53,7 +53,7 @@ export default function ContentList({ canWrite }: { canWrite: boolean }) {
         <p class="action-row">
           <span>Créer :</span>
           {types.map((t) => (
-            <ActionLink icon={Plus} href={`/content/new?type=${t.id}`}>
+            <ActionLink key={t.id} icon={Plus} href={`/content/new?type=${t.id}`}>
               {t.label}
             </ActionLink>
           ))}
@@ -76,7 +76,7 @@ export default function ContentList({ canWrite }: { canWrite: boolean }) {
             </thead>
             <tbody>
               {nodes.map((n) => (
-                <tr>
+                <tr key={n.id}>
                   <td>
                     <a href={`/content/edit/${n.id}`}>{n.title}</a>
                   </td>

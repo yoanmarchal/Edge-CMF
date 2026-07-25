@@ -1,6 +1,6 @@
 import { useState } from 'preact/hooks';
 import { adminApi } from './lib/adminApi';
-import { Notice } from './lib/ui';
+import { BackLink, Notice, SubmitButton } from './lib/ui';
 
 export default function VocabCreateForm() {
   const [id, setId] = useState('');
@@ -13,7 +13,7 @@ export default function VocabCreateForm() {
     setSaving(true);
     try {
       await adminApi.post('/api/taxonomy', { _action: 'create-vocab', id, label });
-      window.location.href = '/taxonomy';
+      window.location.href = '/taxonomy?ok=vocabulaire-cree';
     } catch (e) {
       setError((e as Error).message);
       setSaving(false);
@@ -23,9 +23,7 @@ export default function VocabCreateForm() {
   return (
     <>
       <h1>Nouveau vocabulaire</h1>
-      <p class="muted">
-        <a href="/taxonomy">← Retour à la taxonomie</a>
-      </p>
+      <BackLink href="/taxonomy">Retour à la taxonomie</BackLink>
       {error !== null && <Notice kind="error">Erreur : {error}</Notice>}
 
       <form class="stack" onSubmit={create}>
@@ -43,9 +41,7 @@ export default function VocabCreateForm() {
           Libellé
           <input value={label} maxLength={255} required onInput={(e) => setLabel((e.currentTarget as HTMLInputElement).value)} />
         </label>
-        <button type="submit" disabled={saving}>
-          Créer
-        </button>
+        <SubmitButton saving={saving}>Créer</SubmitButton>
       </form>
     </>
   );

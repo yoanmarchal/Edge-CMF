@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'preact/hooks';
+import { Plus, Trash2 } from 'lucide-preact';
 import type { FieldDef, FieldType } from '@edge-cmf/shared-types';
 import { adminApi } from './lib/adminApi';
-import { Loading, Notice } from './lib/ui';
+import { ActionButton, BackLink, Loading, Notice, RemoveButton, SubmitButton } from './lib/ui';
 
 interface TypeDetailData {
   type: { id: string; label: string; description: string; kind: 'node' | 'paragraph' };
@@ -67,7 +68,10 @@ export default function TypeDetail({ id }: { id: string }) {
     }
   };
 
-  const deleteField = async (fieldId: string) => {
+  const deleteField = async (fieldId: string, fieldName: string) => {
+    // Destructif : les valeurs déjà saisies dans ce champ sur les contenus
+    // existants deviennent inaccessibles. Confirmation obligatoire.
+    if (!confirm(`Supprimer le champ « ${fieldName} » ? Les valeurs déjà saisies seront perdues.`)) return;
     try {
       await adminApi.post('/api/types', { _action: 'delete-field', id: fieldId });
       reload();
@@ -80,7 +84,8 @@ export default function TypeDetail({ id }: { id: string }) {
     if (detail === null || !confirm('Supprimer ce type ?')) return;
     try {
       await adminApi.post('/api/types', { _action: 'delete-type', id: detail.type.id });
-      window.location.href = detail.type.kind === 'paragraph' ? '/paragraphs' : '/types';
+      const backTo = detail.type.kind === 'paragraph' ? '/paragraphs' : '/types';
+      window.location.href = `${backTo}?ok=type-supprime`;
     } catch (e) {
       setError((e as Error).message);
     }
@@ -94,9 +99,7 @@ export default function TypeDetail({ id }: { id: string }) {
 
   return (
     <>
-      <p>
-        <a href={backUrl}>← {isParagraph ? 'Types de paragraphes' : 'Types de contenu'}</a>
-      </p>
+      <BackLink href={backUrl}>{isParagraph ? 'Types de paragraphes' : 'Types de contenu'}</BackLink>
       <h1>
         {detail.type.label} <code class="muted">{detail.type.id}</code>{' '}
         <span class="badge">{isParagraph ? 'Paragraphe' : 'Nœud'}</span>
@@ -121,7 +124,7 @@ export default function TypeDetail({ id }: { id: string }) {
           </thead>
           <tbody>
             {detail.fields.map((f) => (
-              <tr>
+              <tr key={f.id}>
                 <td>
                   <code>{f.name}</code>
                 </td>
@@ -134,9 +137,7 @@ export default function TypeDetail({ id }: { id: string }) {
                 <td class="muted">{f.settings.options?.join(', ') ?? ''}</td>
                 <td>{f.weight}</td>
                 <td>
-                  <button type="button" class="danger" onClick={() => deleteField(f.id)}>
-                    ×
-                  </button>
+                  <RemoveButton title="Supprimer ce champ" onClick={() => deleteField(f.id, f.label)} />
                 </td>
               </tr>
             ))}
@@ -165,7 +166,9 @@ export default function TypeDetail({ id }: { id: string }) {
             Type de champ
             <select value={fieldType} onChange={(e) => setFieldType((e.currentTarget as HTMLSelectElement).value as FieldType)}>
               {FIELD_TYPES.map((ft) => (
-                <option value={ft.value}>{ft.label}</option>
+                <option key={ft.value} value={ft.value}>
+                  {ft.label}
+                </option>
               ))}
             </select>
           </label>
@@ -189,13 +192,13 @@ export default function TypeDetail({ id }: { id: string }) {
             Poids
             <input type="number" value={weight} onInput={(e) => setWeight(Number((e.currentTarget as HTMLInputElement).value))} />
           </label>
-          <button type="submit">Ajouter</button>
+          <SubmitButton icon={Plus}>Ajouter</SubmitButton>
         </form>
       </details>
 
-      <button type="button" class="danger" onClick={deleteType}>
+      <ActionButton icon={Trash2} danger onClick={() => void deleteType()}>
         Supprimer ce type
-      </button>
+      </ActionButton>
     </>
   );
 }

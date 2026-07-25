@@ -1,16 +1,25 @@
+/**
+ * Composants UI partagés des îlots admin — LA source unique pour tout
+ * élément d'interface récurrent (boutons d'action, liens retour, états
+ * de chargement, notices…).
+ *
+ * Règles :
+ * 1. Icône + texte ne se posent JAMAIS à la main : le reset met les svg en
+ *    `display: block`, un svg nu à côté d'un texte part seul sur sa ligne.
+ *    Passer par IconLabel / ActionButton / ActionLink / SubmitButton.
+ * 2. Un pattern qui apparaît dans 2 îlots ou plus se factorise ici,
+ *    pas en copier-coller.
+ * 3. Les icônes viennent de lucide-preact (type LucideIcon), taille 14
+ *    par défaut (16 pour les éléments de premier niveau).
+ */
 import type { ComponentChildren } from 'preact';
 import type { LucideIcon } from 'lucide-preact';
-import { CircleAlert, CircleCheck, LoaderCircle } from 'lucide-preact';
+import { ArrowLeft, ChevronDown, CircleAlert, CircleCheck, LoaderCircle, Save, X } from 'lucide-preact';
 
 /** Signature commune des composants d'icône lucide-preact. */
 export type IconComponent = LucideIcon;
 
-/**
- * Icône + texte alignés horizontalement (classe .icon-label, voir admin.css).
- * Toujours passer par ce composant (ou ActionButton/ActionLink) pour mélanger
- * icône et texte : le reset met les svg en `display: block`, un svg posé nu
- * à côté d'un texte se retrouve seul sur sa ligne.
- */
+/** Icône + texte alignés horizontalement (classe .icon-label, voir admin.css). */
 export function IconLabel({
   icon: Icon,
   size = 14,
@@ -55,21 +64,74 @@ export function ActionButton({
   );
 }
 
-/** Lien d'action (pilule .badge) avec icône. */
+/** Lien d'action (pilule .badge) avec icône. `external` → nouvel onglet. */
 export function ActionLink({
   icon: Icon,
   href,
+  external = false,
   children,
 }: {
   icon: IconComponent;
   href: string;
+  external?: boolean;
   children: ComponentChildren;
 }) {
   return (
-    <a class="badge" href={href}>
+    <a class="badge" href={href} target={external ? '_blank' : undefined} rel={external ? 'noopener' : undefined}>
       <Icon size={14} aria-hidden={true} />
       {children}
     </a>
+  );
+}
+
+/** Bouton de soumission de formulaire — désactivé pendant l'envoi. */
+export function SubmitButton({
+  icon: Icon = Save,
+  saving = false,
+  children,
+}: {
+  icon?: IconComponent;
+  saving?: boolean;
+  children: ComponentChildren;
+}) {
+  return (
+    <button type="submit" disabled={saving}>
+      <Icon size={14} aria-hidden={true} />
+      {children}
+    </button>
+  );
+}
+
+/** Petit bouton « × » de retrait (lignes de table, valeurs multiples).
+ *  Le libellé passe en title + aria-label : accessible sans encombrer. */
+export function RemoveButton({ title, onClick }: { title: string; onClick: () => void }) {
+  return (
+    <button type="button" class="danger icon-only" title={title} aria-label={title} onClick={onClick}>
+      <X size={14} aria-hidden={true} />
+    </button>
+  );
+}
+
+/** Lien retour vers la liste parente — en tête de toute page de détail/création. */
+export function BackLink({ href, children }: { href: string; children: ComponentChildren }) {
+  return (
+    <p class="muted">
+      <a href={href} class="icon-label">
+        <ArrowLeft size={14} aria-hidden={true} />
+        {children}
+      </a>
+    </p>
+  );
+}
+
+/** Pagination par curseur — bouton « Charger plus » standard. */
+export function LoadMoreButton({ onClick }: { onClick: () => void }) {
+  return (
+    <p class="action-row">
+      <ActionButton icon={ChevronDown} onClick={onClick}>
+        Charger plus
+      </ActionButton>
+    </p>
   );
 }
 

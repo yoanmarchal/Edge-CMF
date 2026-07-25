@@ -68,7 +68,7 @@ export default function Users({ selfId }: { selfId: string }) {
           </thead>
           <tbody>
             {users.map((u) => (
-              <tr>
+              <tr key={u.id}>
                 <td>{u.email}</td>
                 <td>
                   {u.id === selfId ? (
@@ -76,7 +76,9 @@ export default function Users({ selfId }: { selfId: string }) {
                   ) : (
                     <select value={u.role} onChange={(e) => setUserRole(u.id, (e.currentTarget as HTMLSelectElement).value as Role)}>
                       {ROLES.map((r) => (
-                        <option value={r}>{r}</option>
+                        <option key={r} value={r}>
+                          {r}
+                        </option>
                       ))}
                     </select>
                   )}

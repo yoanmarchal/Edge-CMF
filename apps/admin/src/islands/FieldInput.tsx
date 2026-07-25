@@ -1,5 +1,7 @@
 import type { FieldDef } from '@edge-cmf/shared-types';
 import type { JSX } from 'preact';
+import { Plus } from 'lucide-preact';
+import { ActionButton, RemoveButton } from './lib/ui';
 import MediaPicker from './MediaPicker';
 
 interface Props {
@@ -78,7 +80,9 @@ function SingleControl({
         <select id={id} required={def.required} value={str} onChange={(e) => onValue((e.currentTarget as HTMLSelectElement).value)}>
           {!def.required && <option value="">—</option>}
           {(def.settings.options ?? []).map((opt) => (
-            <option value={opt}>{opt}</option>
+            <option key={opt} value={opt}>
+              {opt}
+            </option>
           ))}
         </select>
       );
@@ -137,15 +141,13 @@ export default function FieldInput({ def, value, onChange }: Props) {
                 }
               }}
             />
-            <button type="button" class="badge danger" title="Retirer cette valeur" onClick={() => setItems(items.filter((_, idx) => idx !== i))}>
-              ×
-            </button>
+            <RemoveButton title="Retirer cette valeur" onClick={() => setItems(items.filter((_, idx) => idx !== i))} />
           </div>
         ))}
         <p class="action-row">
-          <button type="button" class="badge" onClick={() => setItems([...items, emptyItem(def)])}>
-            + Ajouter une valeur
-          </button>
+          <ActionButton icon={Plus} badge onClick={() => setItems([...items, emptyItem(def)])}>
+            Ajouter une valeur
+          </ActionButton>
         </p>
       </div>
     );

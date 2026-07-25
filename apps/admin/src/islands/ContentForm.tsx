@@ -1,9 +1,16 @@
 import { useEffect, useState } from 'preact/hooks';
 import type { FieldDef } from '@edge-cmf/shared-types';
+import { Trash2 } from 'lucide-preact';
 import { adminApi } from './lib/adminApi';
-import { Loading, Notice } from './lib/ui';
+import { ActionButton, Loading, Notice, SubmitButton } from './lib/ui';
 import FieldInput from './FieldInput';
-import ParagraphsEditor, { type ParagraphTypeDef, type ParagraphValue } from './ParagraphsEditor';
+import ParagraphsEditor, {
+  toEntries,
+  toValues,
+  type ParagraphEntry,
+  type ParagraphTypeDef,
+  type ParagraphValue,
+} from './ParagraphsEditor';
 
 interface TypeDetail {
   type: { id: string; label: string };
@@ -32,16 +39,17 @@ interface NodeDetail {
 
 const SITE_URL = import.meta.env.PUBLIC_SITE_URL ?? '';
 
+/**
+ * Palette de blocs de l'éditeur. `expand=fields` joint la Field API de chaque
+ * type à la liste : UN appel, là où la boucle séquentielle précédente en
+ * faisait 1 + N (donc 11 allers-retours pour 10 types de paragraphe, à chaque
+ * ouverture du formulaire).
+ */
 async function loadParagraphTypes(): Promise<ParagraphTypeDef[]> {
-  const { data: types } = await adminApi.get<{ data: { id: string; label: string }[] }>(
-    '/api/types?kind=paragraph',
+  const { data } = await adminApi.get<{ data: ParagraphTypeDef[] }>(
+    '/api/types?kind=paragraph&expand=fields',
   );
-  const out: ParagraphTypeDef[] = [];
-  for (const t of types) {
-    const detail = await adminApi.get<{ success: true; data: TypeDetail }>(`/api/types?id=${t.id}`);
-    out.push({ id: t.id, label: t.label, fields: detail.data.fields });
-  }
-  return out;
+  return data;
 }
 
 interface Props {
@@ -66,7 +74,7 @@ export default function ContentForm({ mode, typeId, nodeId }: Props) {
   const [status, setStatus] = useState(true);
   const [fieldValues, setFieldValues] = useState<Record<string, unknown>>({});
   const [termIds, setTermIds] = useState<Set<string>>(new Set());
-  const [paragraphs, setParagraphs] = useState<ParagraphValue[]>([]);
+  const [paragraphs, setParagraphs] = useState<ParagraphEntry[]>([]);
 
   useEffect(() => {
     (async () => {
@@ -88,7 +96,7 @@ export default function ContentForm({ mode, typeId, nodeId }: Props) {
           setStatus(n.status);
           setFieldValues(n.fields);
           setTermIds(new Set(n.terms.map((t) => t.id)));
-          setParagraphs(n.paragraphs);
+          setParagraphs(toEntries(n.paragraphs));
           const typeRes = await adminApi.get<{ success: true; data: TypeDetail }>(
             `/api/types?id=${n.contentType}`,
           );
@@ -131,14 +139,14 @@ export default function ContentForm({ mode, typeId, nodeId }: Props) {
         status,
         fields: fieldValues,
         termIds: [...termIds],
-        paragraphs,
+        paragraphs: toValues(paragraphs),
       };
       if (mode === 'edit' && node !== null) {
         await adminApi.post('/api/nodes', { _action: 'update', id: node.id, ...payload });
       } else {
         await adminApi.post('/api/nodes', { _action: 'create', ...payload });
       }
-      window.location.href = '/content?ok=1';
+      window.location.href = mode === 'edit' ? '/content?ok=contenu-modifie' : '/content?ok=contenu-cree';
     } catch (e) {
       setError((e as Error).message);
       setSaving(false);
@@ -149,7 +157,7 @@ export default function ContentForm({ mode, typeId, nodeId }: Props) {
     if (node === null || !confirm('Supprimer ce contenu ?')) return;
     try {
       await adminApi.post('/api/nodes', { _action: 'delete', id: node.id });
-      window.location.href = '/content?ok=1';
+      window.location.href = '/content?ok=contenu-supprime';
     } catch (e) {
       setError((e as Error).message);
     }
@@ -191,6 +199,7 @@ export default function ContentForm({ mode, typeId, nodeId }: Props) {
         {typeDetail.fields.length > 0 && <h2>Champs personnalisés</h2>}
         {typeDetail.fields.map((def) => (
           <FieldInput
+            key={def.id}
             def={def}
             value={fieldValues[def.name]}
             onChange={(name, v) => setFieldValues((prev) => ({ ...prev, [name]: v }))}
@@ -204,11 +213,11 @@ export default function ContentForm({ mode, typeId, nodeId }: Props) {
         {vocabularies.some((v) => v.terms.length > 0) && <h2>Taxonomie</h2>}
         {vocabularies.map((v) =>
           v.terms.length === 0 ? null : (
-            <fieldset>
+            <fieldset key={v.id}>
               <legend>{v.label}</legend>
               <div class="checkbox-group">
                 {v.terms.map((t) => (
-                  <label class="field-inline">
+                  <label class="field-inline" key={t.id}>
                     <input type="checkbox" checked={termIds.has(t.id)} onChange={() => toggleTerm(t.id)} /> {t.label}
                   </label>
                 ))}
@@ -222,15 +231,13 @@ export default function ContentForm({ mode, typeId, nodeId }: Props) {
           Publié
         </label>
 
-        <button type="submit" disabled={saving}>
-          {mode === 'edit' ? 'Enregistrer' : 'Créer'}
-        </button>
+        <SubmitButton saving={saving}>{mode === 'edit' ? 'Enregistrer' : 'Créer'}</SubmitButton>
       </form>
 
       {mode === 'edit' && (
-        <button type="button" class="danger" onClick={remove}>
+        <ActionButton icon={Trash2} danger onClick={() => void remove()}>
           Supprimer ce contenu
-        </button>
+        </ActionButton>
       )}
     </>
   );

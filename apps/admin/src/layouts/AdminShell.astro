@@ -1,5 +1,6 @@
 ---
 import '../styles/admin.css';
+import Flash from '../components/Flash.astro';
 import type { UserContext } from '@edge-cmf/shared-types';
 // Icônes SSR uniquement : rendues en SVG statique côté serveur (pas de
 // directive client), donc zéro JS envoyé au navigateur pour la nav.
@@ -75,6 +76,7 @@ const nav: { href: string; label: string; icon: NavIcon }[] = [
         </form>
       </header>
       <main class="admin-main">
+        <Flash />
         <slot />
       </main>
     </div>

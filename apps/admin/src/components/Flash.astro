@@ -1,0 +1,25 @@
+---
+/**
+ * Message flash de l'URL, rendu en SSR — donc affiché immédiatement, sans
+ * attendre l'hydratation de l'îlot de la page. Monté une fois pour toutes
+ * dans AdminShell : tout écran atteint par une redirection `?ok=` / `?error=`
+ * en bénéficie sans câblage supplémentaire.
+ *
+ * `role="status"` : le message est annoncé aux lecteurs d'écran à l'arrivée
+ * sur la page, sans voler le focus.
+ */
+import { CircleAlert, CircleCheck } from 'lucide-preact';
+import { readFlash } from '../lib/flash';
+
+const flash = readFlash(Astro.url);
+const Icon = flash?.kind === 'error' ? CircleAlert : CircleCheck;
+---
+
+{
+  flash !== null && (
+    <p class={`notice ${flash.kind}`} role="status">
+      <Icon size={16} aria-hidden={true} />
+      {flash.text}
+    </p>
+  )
+}

@@ -70,6 +70,13 @@ export type InsertContentType = z.infer<typeof insertContentTypeSchema>;
 
 export const listTypesQuerySchema = z.object({
   kind: typeKindEnum.optional(),
+  /**
+   * `expand=fields` : joint la Field API de chaque type à la liste, en UNE
+   * requête. Sans ça, un consommateur qui a besoin des champs de N types
+   * enchaîne 1 + N appels (l'éditeur de contenu le faisait pour construire
+   * la palette de paragraphes).
+   */
+  expand: z.literal('fields').optional(),
 });
 
 export const insertFieldSchema = z.object({
@@ -214,6 +221,19 @@ export const listNodesQuerySchema = z.object({
   offset: z.coerce.number().int().min(0).default(0),
 });
 export type ListNodesQuery = z.infer<typeof listNodesQuerySchema>;
+
+/**
+ * Compteurs du tableau de bord admin. Calculés en SQL (`count()`) et non en
+ * mesurant la longueur d'une liste paginée : `listNodesQuerySchema` plafonne
+ * `limit` à 100, un comptage côté client s'arrêterait donc à 100.
+ */
+export const contentStatsSchema = z.object({
+  nodes: z.number().int(),
+  publishedNodes: z.number().int(),
+  types: z.number().int(),
+  paragraphTypes: z.number().int(),
+});
+export type ContentStats = z.infer<typeof contentStatsSchema>;
 
 // ---------------------------------------------------------------------------
 // Authentification (Auth Service — RBAC + JWT)

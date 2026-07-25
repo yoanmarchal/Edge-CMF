@@ -177,6 +177,10 @@
   .admin-main .status-ok {
     color: var(--admin-success);
   }
+  /* Bouton icône seule (RemoveButton) : compact, le libellé est en title. */
+  .admin-main button.icon-only {
+    padding: 0.25rem 0.35rem;
+  }
   @media (prefers-reduced-motion: no-preference) {
     .admin-main .loading > svg.lucide {
       animation: admin-spin 0.9s linear infinite;
