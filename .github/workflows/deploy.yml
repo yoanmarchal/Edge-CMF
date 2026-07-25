@@ -1,5 +1,5 @@
 # CI/CD Full-Stack Edge (cahier v3 §5)
-# Ordre impératif : 1) Migrations D1  2) Micro-Workers  3) Cloudflare Pages
+# Ordre impératif : 1) Migrations D1  2) Micro-Workers  3) Workers Astro (front + admin)
 name: Deploy Edge CMF
 
 on:
@@ -53,13 +53,16 @@ jobs:
       - name: Deploy auth-worker
         run: npx wrangler deploy
         working-directory: apps/auth-worker
+      - name: Deploy media-worker
+        run: npx wrangler deploy
+        working-directory: apps/media-worker
       - name: Deploy gateway-worker
         run: npx wrangler deploy
         working-directory: apps/gateway-worker
 
-      # 3. Build et déploiement du front Astro sur Cloudflare Pages
-      - name: Build Astro
-        run: npm run build -w @edge-cmf/frontend
-      - name: Deploy Cloudflare Pages
-        run: npx wrangler pages deploy ./dist --project-name=edge-cmf
-        working-directory: apps/frontend
+      # 3. Build + déploiement des deux Workers Astro (@astrojs/cloudflare v13+
+      # ne supporte plus Cloudflare Pages — `wrangler deploy` uniquement)
+      - name: Deploy frontend (Worker edge-cmf)
+        run: npm run deploy -w @edge-cmf/frontend
+      - name: Deploy admin (Worker edge-cmf-admin)
+        run: npm run deploy -w @edge-cmf/admin

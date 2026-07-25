@@ -39,7 +39,8 @@ export function buildCacheKey(signature: string, url: string): Request {
 export function tagsForRead(pathname: string): readonly CacheTag[] {
   if (pathname.startsWith('/api/types') || pathname.startsWith('/api/fields')) return ['types'];
   if (pathname.startsWith('/api/node')) return ['content', 'taxonomy'];
-  if (pathname.startsWith('/api/taxonomy')) return ['taxonomy'];
+  if (pathname.startsWith('/api/vocabularies') || pathname.startsWith('/api/terms'))
+    return ['taxonomy'];
   if (pathname.startsWith('/api/settings')) return ['settings'];
   return ALL_TAGS; // route inconnue : dépend de tout (sûr par défaut)
 }
@@ -51,7 +52,8 @@ export function tagsForRead(pathname: string): readonly CacheTag[] {
 export function tagsForMutation(pathname: string): readonly CacheTag[] {
   if (pathname.startsWith('/api/types') || pathname.startsWith('/api/fields')) return ['types'];
   if (pathname.startsWith('/api/node')) return ['content'];
-  if (pathname.startsWith('/api/taxonomy')) return ['taxonomy', 'content'];
+  if (pathname.startsWith('/api/vocabularies') || pathname.startsWith('/api/terms'))
+    return ['taxonomy', 'content'];
   if (pathname.startsWith('/api/settings')) return ['settings'];
   return ALL_TAGS;
 }
