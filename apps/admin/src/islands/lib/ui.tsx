@@ -6,9 +6,13 @@
  * Règles :
  * 1. Icône + texte ne se posent JAMAIS à la main : le reset met les svg en
  *    `display: block`, un svg nu à côté d'un texte part seul sur sa ligne.
- *    Passer par IconLabel / ActionButton / ActionLink / SubmitButton.
+ *    Passer par IconLabel ou Button.
  * 2. Un pattern qui apparaît dans 2 îlots ou plus se factorise ici,
  *    pas en copier-coller.
+ * 2 bis. **Toute action passe par `Button`.** Pas de `<button>` ni de `<a>`
+ *    d'action écrit à la main, et pas de nouvelle variante : si un écran a
+ *    besoin d'une apparence qui n'existe pas, c'est l'intention qu'il faut
+ *    revoir, pas ajouter un booléen.
  * 3. Les icônes viennent de lucide-preact (type LucideIcon), taille 14
  *    par défaut (16 pour les éléments de premier niveau).
  * 4. Le TITRE d'écran ne vit pas ici : il est rendu en SSR par AdminShell
@@ -43,76 +47,129 @@ export function IconLabel({
   );
 }
 
-/** Bouton d'action avec icône — variantes badge (contour) et danger. */
-export function ActionButton({
-  icon: Icon,
-  danger = false,
-  badge = false,
-  disabled = false,
-  onClick,
-  children,
-}: {
-  icon: IconComponent;
-  danger?: boolean;
-  badge?: boolean;
+// ---------------------------------------------------------------------------
+// Bouton — LE composant d'action, unique.
+// ---------------------------------------------------------------------------
+
+/**
+ * Hiérarchie visuelle. C'est une INTENTION, pas une apparence : l'appelant
+ * déclare l'importance de l'action, pas la façon de la dessiner.
+ *
+ * - `primary`   : l'action principale de l'écran ou du formulaire. Une seule
+ *                 par zone. Plein, couleur d'accent.
+ * - `secondary` : tout le reste. Contour discret.
+ */
+export type ButtonVariant = 'primary' | 'secondary';
+
+/** Sémantique. `danger` = action destructive ou irréversible. */
+export type ButtonTone = 'neutral' | 'danger';
+
+interface ButtonBase {
+  icon?: IconComponent;
+  variant?: ButtonVariant;
+  tone?: ButtonTone;
+  /** `sm` : densité de tableau, où un bouton pleine taille écrase la ligne. */
+  size?: 'md' | 'sm';
   disabled?: boolean;
-  onClick: () => void;
-  children: ComponentChildren;
-}) {
-  const cls = `${badge ? 'badge ' : ''}${danger ? 'danger' : ''}`.trim();
-  return (
-    <button type="button" class={cls.length > 0 ? cls : undefined} disabled={disabled} onClick={onClick}>
-      <Icon size={14} aria-hidden={true} />
-      {children}
-    </button>
-  );
+  /** Rendu en `<a>` au lieu de `<button>` — apparence strictement identique. */
+  href?: string;
+  /** Ouvre dans un nouvel onglet (implique `rel="noopener"`). */
+  external?: boolean;
+  type?: 'button' | 'submit';
+  onClick?: () => void;
 }
 
-/** Lien d'action (pilule .badge) avec icône. `external` → nouvel onglet. */
-export function ActionLink({
+/**
+ * `iconOnly` exige une icône ET un libellé en texte brut : celui-ci part en
+ * `title` + `aria-label`. Le type l'impose, on ne peut pas produire un bouton
+ * icône sans nom accessible.
+ */
+type ButtonProps = ButtonBase &
+  (
+    | { iconOnly: true; icon: IconComponent; children: string }
+    | { iconOnly?: false; children: ComponentChildren }
+  );
+
+/**
+ * Bouton d'action unique de l'admin.
+ *
+ * Il rend un `<a>` quand `href` est fourni, un `<button>` sinon — c'est le
+ * point central : « Nouveau type » (un lien) et « Enregistrer » (un bouton)
+ * sont deux actions principales et doivent se ressembler. Avant, les liens
+ * étaient forcément des pilules et les boutons forcément pleins : l'apparence
+ * dépendait de la balise HTML, pas de l'importance de l'action.
+ */
+export function Button({
   icon: Icon,
+  variant = 'secondary',
+  tone = 'neutral',
+  size = 'md',
+  iconOnly = false,
+  disabled = false,
   href,
   external = false,
+  type = 'button',
+  onClick,
   children,
-}: {
-  icon: IconComponent;
-  href: string;
-  external?: boolean;
-  children: ComponentChildren;
-}) {
-  return (
-    <a class="badge" href={href} target={external ? '_blank' : undefined} rel={external ? 'noopener' : undefined}>
-      <Icon size={14} aria-hidden={true} />
-      {children}
-    </a>
-  );
-}
+}: ButtonProps): JSX.Element {
+  const cls = [
+    'btn',
+    `btn--${variant}`,
+    tone === 'danger' ? 'btn--danger' : null,
+    size === 'sm' ? 'btn--sm' : null,
+    iconOnly ? 'btn--icon' : null,
+  ]
+    .filter((c): c is string => c !== null)
+    .join(' ');
 
-/** Bouton de soumission de formulaire — désactivé pendant l'envoi. */
-export function SubmitButton({
-  icon: Icon = Save,
-  saving = false,
-  children,
-}: {
-  icon?: IconComponent;
-  saving?: boolean;
-  children: ComponentChildren;
-}) {
+  const label = iconOnly && typeof children === 'string' ? children : undefined;
+  const inner = (
+    <>
+      {Icon !== undefined && <Icon size={size === 'sm' ? 13 : 14} aria-hidden={true} />}
+      {iconOnly ? null : children}
+    </>
+  );
+
+  if (href !== undefined) {
+    return (
+      <a
+        class={cls}
+        href={disabled ? undefined : href}
+        aria-disabled={disabled ? 'true' : undefined}
+        title={label}
+        aria-label={label}
+        target={external ? '_blank' : undefined}
+        rel={external ? 'noopener' : undefined}
+      >
+        {inner}
+      </a>
+    );
+  }
+
   return (
-    <button type="submit" disabled={saving}>
-      <Icon size={14} aria-hidden={true} />
-      {children}
+    <button
+      type={type}
+      class={cls}
+      disabled={disabled}
+      title={label}
+      aria-label={label}
+      onClick={onClick}
+    >
+      {inner}
     </button>
   );
 }
 
-/** Petit bouton « × » de retrait (lignes de table, valeurs multiples).
- *  Le libellé passe en title + aria-label : accessible sans encombrer. */
+/**
+ * Retrait d'une ligne — préréglage, pas une variante de plus : toutes les
+ * suppressions en contexte dense (ligne de tableau, valeur multiple) doivent
+ * se ressembler. Le libellé part en `title` + `aria-label`.
+ */
 export function RemoveButton({ title, onClick }: { title: string; onClick: () => void }) {
   return (
-    <button type="button" class="danger icon-only" title={title} aria-label={title} onClick={onClick}>
-      <X size={14} aria-hidden={true} />
-    </button>
+    <Button icon={X} tone="danger" size="sm" iconOnly onClick={onClick}>
+      {title}
+    </Button>
   );
 }
 
@@ -128,13 +185,13 @@ export function BackLink({ href, children }: { href: string; children: Component
   );
 }
 
-/** Pagination par curseur — bouton « Charger plus » standard. */
+/** Pagination par curseur — préréglage « Charger plus ». */
 export function LoadMoreButton({ onClick }: { onClick: () => void }) {
   return (
     <p class="action-row">
-      <ActionButton icon={ChevronDown} onClick={onClick}>
+      <Button icon={ChevronDown} onClick={onClick}>
         Charger plus
-      </ActionButton>
+      </Button>
     </p>
   );
 }
@@ -279,7 +336,7 @@ export function FormScreen({
   saving,
   error,
   submitLabel,
-  submitIcon,
+  submitIcon = Save,
   children,
 }: {
   onSubmit: (e: Event) => void;
@@ -294,9 +351,10 @@ export function FormScreen({
       {error !== null && <Notice kind="error">Erreur : {error}</Notice>}
       <form class="stack" onSubmit={onSubmit}>
         {children}
-        <SubmitButton icon={submitIcon} saving={saving}>
+        {/* Soumettre est l'action principale du formulaire, par définition. */}
+        <Button type="submit" variant="primary" icon={submitIcon} disabled={saving}>
           {submitLabel}
-        </SubmitButton>
+        </Button>
       </form>
     </>
   );

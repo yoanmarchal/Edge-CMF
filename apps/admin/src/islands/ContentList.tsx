@@ -1,7 +1,7 @@
 import { CircleCheck, CircleDashed, Plus, Trash2 } from 'lucide-preact';
 import { api, type AdminNode, type ContentTypeSummary } from './lib/contract';
 import { useMutation, useResource } from './lib/hooks';
-import { ActionButton, ActionLink, AsyncView, DataTable, IconLabel, Notice } from './lib/ui';
+import { AsyncView, Button, DataTable, IconLabel, Notice, RemoveButton } from './lib/ui';
 import { routes } from '../lib/routes';
 
 export default function ContentList({ canWrite }: { canWrite: boolean }) {
@@ -25,9 +25,9 @@ export default function ContentList({ canWrite }: { canWrite: boolean }) {
         <p class="action-row">
           <span>Créer :</span>
           {typeList.map((t) => (
-            <ActionLink key={t.id} icon={Plus} href={routes.content.new(t.id)}>
+            <Button key={t.id} variant="primary" icon={Plus} href={routes.content.new(t.id)}>
               {t.label}
-            </ActionLink>
+            </Button>
           ))}
         </p>
       )}
@@ -64,9 +64,7 @@ export default function ContentList({ canWrite }: { canWrite: boolean }) {
               {
                 cell: (n) =>
                   canWrite ? (
-                    <ActionButton icon={Trash2} danger disabled={mutation.busy} onClick={() => remove(n)}>
-                      Supprimer
-                    </ActionButton>
+                    <RemoveButton title={`Supprimer « ${n.title} »`} onClick={() => remove(n)} />
                   ) : null,
               },
             ]}

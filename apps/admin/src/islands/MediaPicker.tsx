@@ -2,7 +2,7 @@ import { useRef } from 'preact/hooks';
 import { ImagePlus, Pencil, X } from 'lucide-preact';
 import { api, type MediaItem } from './lib/contract';
 import { useCursorList } from './lib/hooks';
-import { ActionButton, EmptyState, Loading, LoadMoreButton, Notice } from './lib/ui';
+import { Button, EmptyState, Loading, LoadMoreButton, Notice } from './lib/ui';
 import { isImagePath, mediaFileUrl, publicMediaUrl } from './lib/media';
 import { routes } from '../lib/routes';
 
@@ -45,19 +45,19 @@ export default function MediaPicker({ value, clearable, onValue }: Props) {
         <div class="media-picker-current">
           {isImagePath(value) ? <img src={mediaFileUrl(value)} alt="" /> : <span class="badge">Fichier</span>}
           <code>{value}</code>
-          <ActionButton icon={Pencil} badge onClick={openModal}>
+          <Button icon={Pencil} size="sm" onClick={openModal}>
             Changer
-          </ActionButton>
+          </Button>
           {clearable && (
-            <ActionButton icon={X} badge danger onClick={() => onValue(undefined)}>
+            <Button icon={X} tone="danger" size="sm" onClick={() => onValue(undefined)}>
               Retirer
-            </ActionButton>
+            </Button>
           )}
         </div>
       ) : (
-        <ActionButton icon={ImagePlus} badge onClick={openModal}>
+        <Button icon={ImagePlus} onClick={openModal}>
           Choisir un média
-        </ActionButton>
+        </Button>
       )}
 
       <dialog
@@ -71,9 +71,9 @@ export default function MediaPicker({ value, clearable, onValue }: Props) {
       >
         <header class="media-modal-head">
           <h2 id="media-modal-title">Bibliothèque de médias</h2>
-          <ActionButton icon={X} badge onClick={close}>
+          <Button icon={X} size="sm" onClick={close}>
             Fermer
-          </ActionButton>
+          </Button>
         </header>
 
         <div class="media-modal-body">

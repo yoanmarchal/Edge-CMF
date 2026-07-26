@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { Check, Copy, ExternalLink, RefreshCw, Save, Trash2 } from 'lucide-preact';
 import { api } from './lib/contract';
 import { useMutation, useResource } from './lib/hooks';
-import { ActionButton, ActionLink, AsyncView, Notice } from './lib/ui';
+import { AsyncView, Button, Notice } from './lib/ui';
 import { humanSize, mediaFileUrl, publicMediaUrl } from './lib/media';
 import { routes } from '../lib/routes';
 
@@ -72,9 +72,9 @@ export default function MediaDetail({ mediaKey, canWrite }: { mediaKey: string; 
                   {item.kind === 'video' && <video src={fileUrl} controls />}
                   {item.kind === 'audio' && <audio src={fileUrl} controls />}
                   {item.kind === 'document' && (
-                    <ActionLink icon={ExternalLink} href={fileUrl} external>
+                    <Button icon={ExternalLink} href={fileUrl} external>
                       Ouvrir le document
-                    </ActionLink>
+                    </Button>
                   )}
                 </div>
 
@@ -95,23 +95,22 @@ export default function MediaDetail({ mediaKey, canWrite }: { mediaKey: string; 
                   </dl>
 
                   <p class="action-row">
-                    <ActionButton icon={copied ? Check : Copy} badge onClick={copy}>
+                    <Button icon={copied ? Check : Copy} onClick={copy}>
                       {copied ? 'Copié' : "Copier l'URL"}
-                    </ActionButton>
+                    </Button>
                     {canWrite && (
                       <>
-                        <ActionButton
+                        <Button
                           icon={RefreshCw}
-                          badge
                           disabled={mutation.busy}
                           onClick={() => replaceInput.current?.click()}
                         >
                           {mutation.busy ? 'Opération en cours…' : 'Remplacer le fichier'}
-                        </ActionButton>
+                        </Button>
                         <input ref={replaceInput} type="file" hidden onChange={replace} />
-                        <ActionButton icon={Trash2} badge danger disabled={mutation.busy} onClick={remove}>
+                        <Button icon={Trash2} tone="danger" disabled={mutation.busy} onClick={remove}>
                           Supprimer
-                        </ActionButton>
+                        </Button>
                       </>
                     )}
                   </p>
@@ -135,9 +134,9 @@ export default function MediaDetail({ mediaKey, canWrite }: { mediaKey: string; 
                   )}
                   {canWrite && item.kind === 'image' && alt !== item.alt && (
                     <p class="action-row">
-                      <ActionButton icon={Save} disabled={mutation.busy} onClick={saveAlt}>
+                      <Button variant="primary" icon={Save} disabled={mutation.busy} onClick={saveAlt}>
                         Enregistrer
-                      </ActionButton>
+                      </Button>
                     </p>
                   )}
                 </div>

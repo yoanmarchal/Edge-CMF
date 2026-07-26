@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'preact/hooks';
 import type { FieldDef } from '@edge-cmf/shared-types';
-import { Trash2 } from 'lucide-preact';
+import { Save, Trash2 } from 'lucide-preact';
 import {
   api,
   type AdminNode,
@@ -9,7 +9,7 @@ import {
   type VocabularyWithTerms,
 } from './lib/contract';
 import { useMutation, useResource } from './lib/hooks';
-import { ActionButton, AsyncView, Field, Notice, SubmitButton } from './lib/ui';
+import { AsyncView, Button, Field, Notice } from './lib/ui';
 import FieldInput from './FieldInput';
 import ParagraphsEditor, { toEntries, toValues, type ParagraphEntry } from './ParagraphsEditor';
 import { routes } from '../lib/routes';
@@ -197,13 +197,15 @@ export default function ContentForm({ mode, typeId, nodeId }: Props) {
                 Publié
               </label>
 
-              <SubmitButton saving={mutation.busy}>{loaded !== null ? 'Enregistrer' : 'Créer'}</SubmitButton>
+              <Button type="submit" variant="primary" icon={Save} disabled={mutation.busy}>
+                {loaded !== null ? 'Enregistrer' : 'Créer'}
+              </Button>
             </form>
 
             {loaded !== null && (
-              <ActionButton icon={Trash2} danger disabled={mutation.busy} onClick={remove}>
+              <Button icon={Trash2} tone="danger" disabled={mutation.busy} onClick={remove}>
                 Supprimer ce contenu
-              </ActionButton>
+              </Button>
             )}
           </>
         )}

@@ -1,45 +1,116 @@
 /*
- * Boutons et pilules.
+ * Boutons (.btn) et étiquettes (.badge) — deux choses distinctes.
+ *
+ * Avant, la pilule `.badge` servait à LA FOIS d'étiquette informative
+ * (« multiple », « Paragraphe ») et de bouton d'action secondaire. Une même
+ * apparence pour « voici une information » et « cliquez ici » : d'où
+ * l'impression que rien n'était unifié. La séparation est nette désormais —
+ * `.badge` = étiquette, jamais cliquable ; `.btn` = action, toujours.
+ *
+ * Un `.btn` a la même apparence qu'il soit rendu en <a> ou en <button> :
+ * c'est l'importance de l'action qui décide du style, pas la balise HTML.
  *
  * Doit être chargé APRÈS form.css : `.admin-main button` y a exactement la
  * même spécificité que la règle générique des contrôles de formulaire
  * (`.admin-main input, …, .admin-main button`). Seul l'ordre les départage.
  */
 @layer admin {
-  /* Bouton icône seule (RemoveButton) : compact, le libellé est en title. */
-  .admin-main button.icon-only {
-    padding: var(--admin-space-1) var(--admin-space-2);
+  /* Base = apparence SECONDAIRE : c'est le cas majoritaire, et un bouton
+     oublié sans variante reste discret plutôt que d'aspirer le regard. */
+  .admin .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--admin-space-2);
+    padding: var(--admin-space-2) var(--admin-space-4);
+    font: inherit;
+    line-height: 1.4;
+    text-decoration: none;
+    white-space: nowrap;
+    cursor: pointer;
+    color: var(--admin-fg);
+    background: var(--admin-surface);
+    border: 1px solid var(--admin-border);
+    border-radius: var(--admin-radius-sm);
   }
 
-  .admin-main button {
-    cursor: pointer;
+  .admin .btn:hover {
+    border-color: var(--admin-accent);
+    color: var(--admin-accent);
+  }
+
+  /* Action principale de l'écran ou du formulaire — une seule par zone. */
+  .admin .btn--primary {
+    background: var(--admin-accent);
+    border-color: transparent;
+    color: var(--admin-accent-fg);
+    font-weight: 500;
+  }
+  .admin .btn--primary:hover {
+    filter: brightness(0.92);
+    border-color: transparent;
+    color: var(--admin-accent-fg);
+  }
+
+  /* Action destructive. En secondaire : contour rouge, pas un pavé plein —
+     une suppression doit être identifiable sans crier plus fort que
+     l'action principale de l'écran. */
+  .admin .btn--danger {
+    color: var(--admin-danger);
+    border-color: color-mix(in srgb, var(--admin-danger) 40%, var(--admin-border));
+  }
+  .admin .btn--danger:hover {
+    color: var(--admin-danger);
+    border-color: var(--admin-danger);
+    background: color-mix(in srgb, var(--admin-danger) 8%, var(--admin-surface));
+  }
+  /* Sauf en primaire : là, c'est la confirmation d'une destruction assumée. */
+  .admin .btn--primary.btn--danger {
+    background: var(--admin-danger);
+    border-color: transparent;
+    color: var(--admin-accent-fg);
+  }
+  .admin .btn--primary.btn--danger:hover {
+    background: var(--admin-danger);
+    color: var(--admin-accent-fg);
+  }
+
+  /* Densité de tableau : un bouton pleine taille écrase la ligne. */
+  .admin .btn--sm {
+    padding: var(--admin-space-1) var(--admin-space-3);
+    font-size: var(--admin-text-md);
+  }
+
+  /* Icône seule — le libellé est en title + aria-label (imposé par le type). */
+  .admin .btn--icon {
+    padding: var(--admin-space-1) var(--admin-space-2);
+    gap: 0;
+  }
+
+  .admin .btn:disabled,
+  .admin .btn[aria-disabled='true'] {
+    opacity: 0.55;
+    cursor: not-allowed;
+    filter: none;
+  }
+  .admin .btn:disabled:hover,
+  .admin .btn[aria-disabled='true']:hover {
+    border-color: var(--admin-border);
+    color: inherit;
+    background: var(--admin-surface);
+  }
+  .admin .btn--primary:disabled:hover {
     background: var(--admin-accent);
     color: var(--admin-accent-fg);
     border-color: transparent;
   }
 
-  .admin-main button:hover {
-    filter: brightness(0.92);
-  }
-
-  .admin-main button.danger {
-    background: var(--admin-danger);
-  }
-
-  .admin-main button.badge {
-    background: none;
-    color: var(--admin-accent);
-    border: 1px solid var(--admin-border);
-    border-radius: var(--admin-radius-pill);
-  }
-
-  .admin-main button.badge.danger {
-    color: var(--admin-danger);
-  }
-
-  .admin-main .badge {
-    /* inline-flex (pas inline-block) : les icônes des ActionLink/ActionButton
-       doivent rester sur la même ligne que le libellé. */
+  /* ------------------------------------------------------------------
+     Étiquette informative. Jamais cliquable, jamais un bouton : elle
+     qualifie une donnée (cardinalité d'un champ, nature d'un bundle,
+     type d'un média).
+     ------------------------------------------------------------------ */
+  .admin .badge {
     display: inline-flex;
     align-items: center;
     gap: var(--admin-space-2);
@@ -48,7 +119,6 @@
     border-radius: var(--admin-radius-pill);
     font-size: var(--admin-text-sm);
     margin-right: var(--admin-space-1);
-    text-decoration: none;
-    color: inherit;
+    color: var(--admin-muted);
   }
 }

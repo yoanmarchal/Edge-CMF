@@ -1,7 +1,7 @@
 import { Plus, Trash2 } from 'lucide-preact';
 import { api, type VocabularyWithTerms } from './lib/contract';
 import { useMutation, useResource } from './lib/hooks';
-import { ActionButton, ActionLink, AsyncView, DataTable, EmptyState, Notice, RemoveButton } from './lib/ui';
+import { AsyncView, Button, DataTable, EmptyState, Notice, RemoveButton } from './lib/ui';
 import { routes } from '../lib/routes';
 
 export default function Taxonomy() {
@@ -28,9 +28,9 @@ export default function Taxonomy() {
       {mutation.error !== null && <Notice kind="error">Erreur : {mutation.error}</Notice>}
 
       <p class="action-row">
-        <ActionLink icon={Plus} href={routes.taxonomy.new}>
+        <Button variant="primary" icon={Plus} href={routes.taxonomy.new}>
           Nouveau vocabulaire
-        </ActionLink>
+        </Button>
       </p>
 
       <AsyncView
@@ -45,15 +45,15 @@ export default function Taxonomy() {
                   <h2>
                     {v.label} <code class="muted">{v.id}</code>
                   </h2>
-                  <ActionButton
+                  <Button
                     icon={Trash2}
-                    badge
-                    danger
+                    tone="danger"
+                    size="sm"
                     disabled={mutation.busy}
                     onClick={() => removeVocabulary(v)}
                   >
                     Supprimer le vocabulaire
-                  </ActionButton>
+                  </Button>
                 </div>
 
                 {v.terms.length === 0 ? (
@@ -75,9 +75,9 @@ export default function Taxonomy() {
                 )}
 
                 <p class="action-row">
-                  <ActionLink icon={Plus} href={routes.taxonomy.newTerm(v.id)}>
+                  <Button icon={Plus} href={routes.taxonomy.newTerm(v.id)}>
                     Nouveau terme
-                  </ActionLink>
+                  </Button>
                 </p>
               </section>
             ))}

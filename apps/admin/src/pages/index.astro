@@ -3,7 +3,9 @@ import Login from '../layouts/Login.astro';
 import AdminShell from '../layouts/AdminShell.astro';
 import Flash from '../components/Flash.astro';
 import Dashboard from '../islands/Dashboard';
+import { Button } from '../islands/lib/ui';
 import { getSessionUser } from '../lib/session';
+import { LogIn } from 'lucide-preact';
 
 const session = await getSessionUser(Astro.cookies);
 ---
@@ -23,7 +25,7 @@ const session = await getSessionUser(Astro.cookies);
         Mot de passe
         <input name="password" type="password" minlength="8" required />
       </label>
-      <button type="submit">Se connecter</button>
+      <Button type="submit" variant="primary" icon={LogIn}>Se connecter</Button>
     </form>
   </Login>
 ) : (

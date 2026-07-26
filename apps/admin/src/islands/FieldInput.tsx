@@ -1,7 +1,7 @@
 import type { FieldDef } from '@edge-cmf/shared-types';
 import type { JSX } from 'preact';
 import { Plus } from 'lucide-preact';
-import { ActionButton, RemoveButton } from './lib/ui';
+import { Button, RemoveButton } from './lib/ui';
 import MediaPicker from './MediaPicker';
 
 interface Props {
@@ -167,9 +167,9 @@ export default function FieldInput({ def, value, onChange }: Props) {
           </div>
         ))}
         <p class="action-row">
-          <ActionButton icon={Plus} badge onClick={() => setItems([...items, emptyItem(def)])}>
+          <Button icon={Plus} size="sm" onClick={() => setItems([...items, emptyItem(def)])}>
             Ajouter une valeur
-          </ActionButton>
+          </Button>
         </p>
       </div>
     );

@@ -1,6 +1,6 @@
 import { Plus, X } from 'lucide-preact';
 import type { FieldDef } from '@edge-cmf/shared-types';
-import { ActionButton } from './lib/ui';
+import { Button } from './lib/ui';
 import FieldInput from './FieldInput';
 
 export interface ParagraphTypeDef {
@@ -68,9 +68,9 @@ export default function ParagraphsEditor({ paragraphTypes, value, onChange }: Pr
             <div class="paragraph-item" key={p.uid}>
               <p>
                 <strong>{t.label}</strong>{' '}
-                <ActionButton icon={X} danger onClick={() => remove(p.uid)}>
+                <Button icon={X} tone="danger" size="sm" onClick={() => remove(p.uid)}>
                   Retirer
-                </ActionButton>
+                </Button>
               </p>
               {t.fields.map((def) => (
                 <FieldInput
@@ -88,9 +88,9 @@ export default function ParagraphsEditor({ paragraphTypes, value, onChange }: Pr
       <p class="action-row">
         <span>Ajouter :</span>
         {paragraphTypes.map((t) => (
-          <ActionButton key={t.id} icon={Plus} badge onClick={() => add(t.id)}>
+          <Button key={t.id} icon={Plus} onClick={() => add(t.id)}>
             {t.label}
-          </ActionButton>
+          </Button>
         ))}
       </p>
     </div>

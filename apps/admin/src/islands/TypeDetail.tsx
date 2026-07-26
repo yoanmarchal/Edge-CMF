@@ -3,17 +3,7 @@ import { Plus, Trash2 } from 'lucide-preact';
 import type { FieldDef, FieldType } from '@edge-cmf/shared-types';
 import { api } from './lib/contract';
 import { useMutation, useResource } from './lib/hooks';
-import {
-  ActionButton,
-  AsyncView,
-  BackLink,
-  DataTable,
-  EmptyState,
-  Field,
-  Notice,
-  RemoveButton,
-  SubmitButton,
-} from './lib/ui';
+import { AsyncView, BackLink, Button, DataTable, EmptyState, Field, Notice, RemoveButton } from './lib/ui';
 import { bundleSection } from '../lib/routes';
 
 const FIELD_TYPES: { value: FieldType; label: string }[] = [
@@ -188,15 +178,15 @@ export default function TypeDetail({ id }: { id: string }) {
                       onInput={(e) => setWeight(Number((e.currentTarget as HTMLInputElement).value))}
                     />
                   </Field>
-                  <SubmitButton icon={Plus} saving={mutation.busy}>
+                  <Button type="submit" variant="primary" icon={Plus} disabled={mutation.busy}>
                     Ajouter
-                  </SubmitButton>
+                  </Button>
                 </form>
               </details>
 
-              <ActionButton icon={Trash2} danger disabled={mutation.busy} onClick={() => removeType(isParagraph)}>
+              <Button icon={Trash2} tone="danger" disabled={mutation.busy} onClick={() => removeType(isParagraph)}>
                 Supprimer ce type
-              </ActionButton>
+              </Button>
             </>
           );
         }}

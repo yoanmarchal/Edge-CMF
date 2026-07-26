@@ -1,7 +1,7 @@
 import { Trash2, UserPlus } from 'lucide-preact';
 import { api, type AdminUser, type Role } from './lib/contract';
 import { useMutation, useResource } from './lib/hooks';
-import { ActionButton, ActionLink, AsyncView, DataTable, Notice } from './lib/ui';
+import { AsyncView, Button, DataTable, Notice, RemoveButton } from './lib/ui';
 import { routes } from '../lib/routes';
 
 const ROLES: Role[] = ['admin', 'editor', 'viewer'];
@@ -24,9 +24,9 @@ export default function Users({ selfId }: { selfId: string }) {
       {mutation.error !== null && <Notice kind="error">Erreur : {mutation.error}</Notice>}
 
       <p class="action-row">
-        <ActionLink icon={UserPlus} href={routes.users.new}>
+        <Button variant="primary" icon={UserPlus} href={routes.users.new}>
           Nouvel utilisateur
-        </ActionLink>
+        </Button>
       </p>
 
       <AsyncView resource={users}>
@@ -60,9 +60,7 @@ export default function Users({ selfId }: { selfId: string }) {
               {
                 cell: (u) =>
                   u.id === selfId ? null : (
-                    <ActionButton icon={Trash2} danger disabled={mutation.busy} onClick={() => remove(u.id, u.email)}>
-                      Supprimer
-                    </ActionButton>
+                    <RemoveButton title={`Supprimer le compte ${u.email}`} onClick={() => remove(u.id, u.email)} />
                   ),
               },
             ]}

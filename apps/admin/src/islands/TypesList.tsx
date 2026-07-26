@@ -1,7 +1,7 @@
 import { Plus } from 'lucide-preact';
 import { api, type ContentTypeSummary } from './lib/contract';
 import { useResource } from './lib/hooks';
-import { ActionLink, AsyncView, DataTable } from './lib/ui';
+import { AsyncView, Button, DataTable } from './lib/ui';
 import { routes } from '../lib/routes';
 
 interface Props {
@@ -29,9 +29,9 @@ export default function TypesList({ kind }: Props) {
   return (
     <>
       <p class="action-row">
-        <ActionLink icon={Plus} href={copy.newHref}>
+        <Button variant="primary" icon={Plus} href={copy.newHref}>
           {copy.newLabel}
-        </ActionLink>
+        </Button>
       </p>
 
       <AsyncView resource={types} empty={copy.empty}>

@@ -54,6 +54,15 @@ src/pages/api/<section>.ts        ← proxy déclaratif : read() / mutations()
 - **Aucune interface de données déclarée dans un îlot** : elle vit dans
   `contract.ts`, dérivée du worker.
 - `DataTable` exige `rowKey` : la clé de liste ne peut plus être oubliée.
+- **Toute action passe par `Button`** — jamais de `<button>` ni de `<a>`
+  d'action écrit à la main. On déclare une INTENTION, pas une apparence :
+  `variant` (`primary` pour l'action principale de l'écran ou la soumission
+  d'un formulaire, `secondary` par défaut), `tone="danger"` pour le destructif,
+  `size="sm"` en densité de tableau. `href` rend un `<a>` d'apparence
+  identique. Suppression en ligne de tableau : `RemoveButton`.
+  Ne jamais ajouter de variante : si une apparence manque, c'est l'intention
+  qu'il faut revoir.
+- `.badge` est une **étiquette informative**, jamais un bouton.
 - Le cookie `cmf_session` est httpOnly : les îlots ne voient jamais le JWT.
 - RBAC : voir `docs/design/04-auth.md`. Le proxy est la seule barrière.
 - Les erreurs des workers sont **propagées telles quelles** (statut + message).

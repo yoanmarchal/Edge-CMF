@@ -1,6 +1,7 @@
 ---
 import '../styles/admin.css';
 import Flash from '../components/Flash.astro';
+import { Button } from '../islands/lib/ui';
 import type { UserContext } from '@edge-cmf/shared-types';
 // Icônes SSR uniquement : rendues en SVG statique côté serveur (pas de
 // directive client), donc zéro JS envoyé au navigateur pour la nav.
@@ -90,11 +91,11 @@ const nav: { href: string; label: string; icon: NavIcon }[] = [
       </aside>
       <header class="admin-topbar">
         <span class="admin-user">{user.email} · {user.role}</span>
+        <!-- Même composant Button que les îlots, rendu en SSR (aucune
+             hydratation : la déconnexion est une soumission de formulaire,
+             elle fonctionne sans JS). -->
         <form method="post" action="/api/logout" class="inline">
-          <button type="submit">
-            <LogOut size={15} aria-hidden={true} />
-            Déconnexion
-          </button>
+          <Button type="submit" icon={LogOut}>Déconnexion</Button>
         </form>
       </header>
       <main class="admin-main" id="contenu">

@@ -161,18 +161,17 @@
      Icônes (lucide-preact).
      Le reset met les svg en `display: block` : un svg posé à côté d'un
      texte se retrouve seul sur sa ligne. Règle d'or : icône + texte
-     passent TOUJOURS par un conteneur flex — les composants IconLabel /
-     ActionButton / ActionLink (islands/lib/ui.tsx) s'en chargent.
+     passent TOUJOURS par un conteneur flex — les composants IconLabel et
+     Button (islands/lib/ui.tsx) s'en chargent.
      ------------------------------------------------------------------ */
   .admin svg.lucide {
     display: inline-block;
     flex-shrink: 0;
   }
 
-  /* Recette flex unique pour tout élément mélangeant icône + texte. */
-  .admin .icon-label,
-  .admin-main button,
-  .admin-topbar button {
+  /* Recette flex pour les éléments mélangeant icône + texte hors Button
+     (celui-ci porte sa propre mise en page dans components/button.css). */
+  .admin .icon-label {
     display: inline-flex;
     align-items: center;
     gap: var(--admin-space-2);

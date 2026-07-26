@@ -1,7 +1,7 @@
 import { Check, CircleCheck } from 'lucide-preact';
 import { api } from './lib/contract';
 import { useMutation, useResource } from './lib/hooks';
-import { ActionButton, AsyncView, IconLabel, Notice } from './lib/ui';
+import { AsyncView, Button, IconLabel, Notice } from './lib/ui';
 import { THEMES, THEME_SETTING_KEY, DEFAULT_THEME_ID } from '../lib/themes';
 
 export default function Appearance() {
@@ -34,9 +34,9 @@ export default function Appearance() {
                       Thème actif
                     </IconLabel>
                   ) : (
-                    <ActionButton icon={Check} disabled={mutation.busy} onClick={() => activate(t.id)}>
+                    <Button variant="primary" icon={Check} disabled={mutation.busy} onClick={() => activate(t.id)}>
                       Activer
-                    </ActionButton>
+                    </Button>
                   )}
                 </div>
               ))}

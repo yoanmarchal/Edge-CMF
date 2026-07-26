@@ -2,7 +2,7 @@ import { useRef } from 'preact/hooks';
 import { FileText, Music, Upload, Video } from 'lucide-preact';
 import { api, type MediaItem } from './lib/contract';
 import { useCursorList, useMutation } from './lib/hooks';
-import { ActionButton, EmptyState, Loading, LoadMoreButton, Notice } from './lib/ui';
+import { Button, EmptyState, Loading, LoadMoreButton, Notice } from './lib/ui';
 import { humanSize, mediaFileUrl } from './lib/media';
 import { routes } from '../lib/routes';
 
@@ -56,9 +56,9 @@ export default function MediaLibrary({ canWrite }: { canWrite: boolean }) {
 
       {canWrite && (
         <p class="action-row">
-          <ActionButton icon={Upload} badge disabled={upload.busy} onClick={() => fileInput.current?.click()}>
+          <Button variant="primary" icon={Upload} disabled={upload.busy} onClick={() => fileInput.current?.click()}>
             {upload.busy ? 'Envoi en cours…' : 'Téléverser des fichiers'}
-          </ActionButton>
+          </Button>
           <input ref={fileInput} type="file" multiple hidden onChange={send} />
         </p>
       )}
