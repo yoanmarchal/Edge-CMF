@@ -22,8 +22,19 @@ export const GET = read('session', async ({ url }) => {
   }
 
   // `all=1` : les brouillons sont visibles en back-office, jamais côté public.
+  //
+  // Seuls les paramètres de la liste blanche sont relayés. La boucle
+  // précédente recopiait toute la query et ÉCRASAIT au passage les valeurs
+  // posées juste au-dessus : n'importe quel client pouvait redéfinir `all` ou
+  // `limit`, et pousser des clés arbitraires vers le worker. Le content-worker
+  // revalide, donc pas d'exploitation directe — mais une politique décidée ici
+  // ne doit pas être annulée par le paramètre qui la suit.
+  const RELAYABLE = ['type', 'term', 'limit', 'offset'] as const;
   const query: Record<string, string> = { all: '1', limit: '100' };
-  for (const [key, value] of url.searchParams) query[key] = value;
+  for (const key of RELAYABLE) {
+    const value = url.searchParams.get(key);
+    if (value !== null) query[key] = value;
+  }
   return proxyResponse(await client.api.nodes.$get({ query }));
 });
 

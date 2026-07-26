@@ -8,6 +8,15 @@ import { requireApiSession } from '../../lib/session';
 const keySchema = z.string().min(1).max(512);
 
 /**
+ * `duplex: 'half'` est obligatoire (spécification fetch) dès que le corps est
+ * un `ReadableStream`, mais absent des types DOM embarqués. On l'ajoute par
+ * extension d'interface plutôt que par cast : la propriété reste typée.
+ */
+interface StreamingRequestInit extends RequestInit {
+  readonly duplex: 'half';
+}
+
+/**
  * API JSON /api/media — consommée par les îlots médias. Proxy authentifié
  * vers le media-worker (Service Binding R2, jamais exposé directement).
  * Le binaire lui-même est servi par /api/media/file/[...key].
@@ -54,13 +63,23 @@ export const POST: APIRoute = async ({ request, cookies, url }) => {
     path = `/api/media/replace/${key.data}`;
   }
 
+  if (request.body === null) return jsonError('Corps de requête vide', 400);
+
   // Fetch brut : le corps multipart est repropagé tel quel, le client RPC
   // typé ne sait pas transporter un flux binaire.
-  const upstream = await mediaFetch(path, {
+  //
+  // Le flux est relayé SANS être matérialisé. Un `await request.arrayBuffer()`
+  // chargeait jusqu'à 50 Mo (MEDIA_MAX_BYTES) dans cet isolat, puis le
+  // media-worker en chargeait 50 de plus : deux uploads simultanés suffisaient
+  // à dépasser les 128 Mo de mémoire par isolat. `duplex: 'half'` est requis
+  // par la spécification fetch dès qu'un corps est un ReadableStream.
+  const init: StreamingRequestInit = {
     method: 'POST',
     headers: { 'content-type': contentType },
-    body: await request.arrayBuffer(),
-  });
+    body: request.body,
+    duplex: 'half',
+  };
+  const upstream = await mediaFetch(path, init);
   return proxyResponse(upstream);
 };
 

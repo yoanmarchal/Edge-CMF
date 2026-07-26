@@ -19,9 +19,35 @@ export async function getTagSignature(kv: KVNamespace, tags: readonly CacheTag[]
   return tags.map((t, i) => `${t}:${versions[i] ?? '0'}`).join('|');
 }
 
-/** Fait avancer la version des tags affectés par une mutation. */
+/**
+ * Nouvelle version de tag, garantie différente de la précédente.
+ *
+ * `Date.now()` seul ne suffit pas : dans un Worker, l'horloge est FIGÉE entre
+ * deux opérations d'E/S. Deux mutations traitées dans la même invocation
+ * produisaient donc la même valeur — le tag « avançait » sans changer, et le
+ * cache n'était pas invalidé. Le suffixe aléatoire lève l'ambiguïté.
+ *
+ * La composante temporelle est conservée en tête : elle rend les versions
+ * lisibles et grossièrement ordonnées lors d'un débogage.
+ */
+function nextVersion(): string {
+  return `${Date.now().toString(36)}-${crypto.randomUUID().slice(0, 8)}`;
+}
+
+/**
+ * Fait avancer la version des tags affectés par une mutation.
+ *
+ * ATTENTION — limite non résolue (P1-2 de l'audit) : KV n'accepte qu'UNE
+ * écriture par seconde et par clé, sur le plan payant comme sur le gratuit.
+ * Ces clés sont fixes et partagées par toutes les mutations : un import de
+ * contenu ou deux éditeurs qui publient en même temps dépassent la limite et
+ * l'invalidation est perdue. L'appelant journalise désormais l'échec au lieu
+ * de l'ignorer, mais le correctif de fond est de déplacer ce compteur vers un
+ * Durable Object (écritures sérialisées, cohérence forte, pas de plafond par
+ * seconde).
+ */
 export async function bumpTags(kv: KVNamespace, tags: readonly CacheTag[]): Promise<void> {
-  const v = Date.now().toString(36);
+  const v = nextVersion();
   await Promise.all(tags.map((t) => kv.put(tagKey(t), v)));
 }
 

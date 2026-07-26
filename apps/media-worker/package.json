@@ -10,7 +10,8 @@
   "scripts": {
     "dev": "wrangler dev --port 8704 --inspector-port 9234 --persist-to ../../.wrangler-state",
     "deploy": "wrangler deploy",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit && tsc --noEmit -p test/tsconfig.json",
+    "test": "vitest run"
   },
   "dependencies": {
     "@edge-cmf/shared-types": "*",

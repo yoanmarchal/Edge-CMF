@@ -10,7 +10,10 @@
  *   servies en cache immuable ;
  * - tout le reste → texte brut.
  */
-import { env } from 'cloudflare:workers';
+// La résolution des versions vit dans `lib/media-versions.ts` : mémoïsée à
+// l'échelle de l'isolat et dédoublonnée, au lieu d'une sous-requête par
+// valeur affichée (constat P1-1 de l'audit).
+import { versionedMediaUrl } from '../lib/media-versions';
 
 interface Props {
   value: unknown;
@@ -21,19 +24,6 @@ const IMAGE_RE = /\.(jpe?g|png|webp|avif|gif|svg)$/i;
 const isMedia = (v: unknown): v is string => typeof v === 'string' && v.startsWith('/media/');
 const items: unknown[] = Array.isArray(value) ? value : [value];
 
-/** `/media/<clé>` → `/media/<clé>?v=<epoch>` (repli : chemin nu si le média a disparu). */
-async function versionedUrl(path: string): Promise<string> {
-  const key = path.replace(/^\/media\//, '');
-  try {
-    const res = await env.MEDIA_WORKER.fetch(`http://interne/api/media/item/${key}`);
-    if (!res.ok) return path;
-    const { data } = (await res.json()) as { data: { uploaded: string } };
-    return `${path}?v=${Date.parse(data.uploaded)}`;
-  } catch {
-    return path;
-  }
-}
-
 type Rendered =
   | { kind: 'image'; href: string }
   | { kind: 'file'; href: string }
@@ -42,7 +32,7 @@ type Rendered =
 const rendered: Rendered[] = await Promise.all(
   items.map(async (item): Promise<Rendered> => {
     if (isMedia(item)) {
-      const href = await versionedUrl(item);
+      const href = await versionedMediaUrl(item);
       return IMAGE_RE.test(item) ? { kind: 'image', href } : { kind: 'file', href };
     }
     return { kind: 'text', text: String(item) };

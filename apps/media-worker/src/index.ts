@@ -6,6 +6,8 @@ import {
   listMediaQuerySchema,
   mediaAltSchema,
   mediaKindOf,
+  reportServerError,
+  serverErrorMessage,
   type MediaItem,
   type MediaListResult,
 } from '@edge-cmf/shared-types';
@@ -23,7 +25,22 @@ const app = new Hono<{ Bindings: Bindings }>();
 app.use('/api/*', async (c, next) => {
   await next();
   if (c.req.method !== 'GET' && c.res.ok) {
-    c.executionCtx.waitUntil(c.env.CACHE_KV.put('cache-tag:media', Date.now().toString(36)));
+    // Échec silencieux = médias remplacés mais pages du front jamais
+    // invalidées. KV plafonne à une écriture par seconde et par clé, et cette
+    // clé est fixe : sur un import de médias, le dépassement est certain.
+    // Suffixe aléatoire : dans un Worker l'horloge est figée entre deux E/S,
+    // donc deux mutations d'une même invocation produisaient la même version
+    // — le tag « avançait » sans changer de valeur.
+    const version = `${Date.now().toString(36)}-${crypto.randomUUID().slice(0, 8)}`;
+    c.executionCtx.waitUntil(
+      c.env.CACHE_KV.put('cache-tag:media', version).catch((error: unknown) => {
+        console.error({
+          event: 'cache.bump_media_tag_failed',
+          method: c.req.method,
+          error: String(error),
+        });
+      }),
+    );
   }
 });
 
@@ -51,12 +68,24 @@ function extensionOf(name: string, contentType: string): string {
   return contentType.split('/')[1]?.split('+')[0] ?? 'bin';
 }
 
-/** Clé R2 datée et unique : `2026/07/photo-de-l-equipe-a1b2c3d4.jpg` */
+/**
+ * Clé R2 datée et unique : `2026/07/photo-de-l-equipe-a1b2c3d4e5f60718.jpg`
+ *
+ * Le suffixe faisait 8 caractères hexadécimaux, soit 32 bits. Deux fichiers au
+ * même nom slugifié dans le même mois entraient donc en collision avec une
+ * probabilité non négligeable (paradoxe des anniversaires : ~50 % vers 77 000
+ * fichiers pour un préfixe donné) — et une collision faisait un `put` sur une
+ * clé existante, ÉCRASANT le fichier précédent sans le moindre signal, pendant
+ * que les contenus qui le référençaient se mettaient à afficher autre chose.
+ *
+ * 16 caractères (64 bits) ramènent le risque à l'inatteignable. La vérification
+ * d'absence côté appelant reste la ceinture, ceci est la bretelle.
+ */
 function buildKey(originalName: string, contentType: string): string {
   const now = new Date();
   const yyyy = String(now.getUTCFullYear());
   const mm = String(now.getUTCMonth() + 1).padStart(2, '0');
-  const rand = crypto.randomUUID().slice(0, 8);
+  const rand = crypto.randomUUID().replaceAll('-', '').slice(0, 16);
   return `${yyyy}/${mm}/${slugifyBaseName(originalName)}-${rand}.${extensionOf(originalName, contentType)}`;
 }
 
@@ -114,7 +143,20 @@ const routes = app
     return c.json(result);
   })
 
-  // Upload multipart : champs `file` (obligatoire) et `alt` (optionnel).
+  /**
+   * Upload multipart : champs `file` (obligatoire) et `alt` (optionnel).
+   *
+   * LIMITE CONNUE : `parseBody()` s'appuie sur `request.formData()`, qui
+   * matérialise le corps multipart complet — jusqu'à MEDIA_MAX_BYTES (50 Mo)
+   * dans cet isolat, sur les 128 Mo disponibles. Le relais admin ne bufferise
+   * plus (il transmet le flux) et le `put` consomme désormais un flux plutôt
+   * qu'un `arrayBuffer()`, ce qui supprime la SECONDE copie ; la première
+   * subsiste tant que l'upload passe par du multipart.
+   *
+   * Suppression définitive : envoyer le binaire brut avec le nom de fichier et
+   * l'alt en en-têtes, et faire `MEDIA.put(key, c.req.raw.body)`. Cela touche
+   * l'îlot d'upload côté admin — hors du périmètre du lot 1.
+   */
   .post('/api/media', async (c) => {
     const body = await c.req.parseBody();
     const file = body.file;
@@ -132,7 +174,10 @@ const routes = app
     }
     const alt = typeof body.alt === 'string' ? body.alt.slice(0, 512) : '';
     const key = buildKey(file.name, file.type);
-    const obj = await c.env.MEDIA.put(key, await file.arrayBuffer(), {
+    // `file.stream()` au lieu de `file.arrayBuffer()` : R2 consomme le flux
+    // sans qu'on matérialise les 50 Mo dans le tas de l'isolat (limite : 128 Mo
+    // par isolat, partagés entre toutes les requêtes concurrentes).
+    const obj = await c.env.MEDIA.put(key, file.stream(), {
       httpMetadata: { contentType: file.type },
       customMetadata: { originalName: file.name.slice(0, 255), alt },
     });
@@ -170,14 +215,24 @@ const routes = app
     }
 
     // Requêtes Range : streaming direct depuis R2, hors cache.
-    const range = parseRange(c.req.header('range'));
-    if (range !== undefined) {
+    const parsed = parseRange(c.req.header('range'), meta.size);
+    if (parsed.kind === 'unsatisfiable') {
+      // 416 avec `Content-Range: bytes */<taille>` : c'est cette réponse qui
+      // permet au client de se recaler. Auparavant, R2 levait et le client
+      // recevait une 500.
+      headers.set('content-range', `bytes */${meta.size}`);
+      return new Response(null, { status: 416, headers });
+    }
+    if (parsed.kind === 'range') {
+      const { range } = parsed;
       const partial = await c.env.MEDIA.get(key, { range });
       if (partial === null || partial.body === null) {
         return c.json({ success: false as const, error: 'Média introuvable' }, 404);
       }
-      const end = range.length !== undefined ? Math.min(range.offset + range.length, meta.size) - 1 : meta.size - 1;
+      const end =
+        range.length !== undefined ? range.offset + range.length - 1 : meta.size - 1;
       headers.set('content-range', `bytes ${range.offset}-${end}/${meta.size}`);
+      headers.set('content-length', String(end - range.offset + 1));
       return new Response(partial.body, { status: 206, headers });
     }
 
@@ -197,7 +252,11 @@ const routes = app
       return c.json({ success: false as const, error: 'Média introuvable' }, 404);
     }
     const res = new Response(obj.body, { status: 200, headers });
-    c.executionCtx.waitUntil(cache.put(cacheKey, res.clone()));
+    c.executionCtx.waitUntil(
+      cache.put(cacheKey, res.clone()).catch((error: unknown) => {
+        console.error({ event: 'media.cache_put_failed', key, error: String(error) });
+      }),
+    );
     res.headers.set('accept-ranges', 'bytes');
     return res;
   })
@@ -231,7 +290,7 @@ const routes = app
       );
     }
 
-    const updated = await c.env.MEDIA.put(key, await file.arrayBuffer(), {
+    const updated = await c.env.MEDIA.put(key, file.stream(), {
       httpMetadata: { contentType: file.type },
       customMetadata: {
         originalName: file.name.slice(0, 255),
@@ -241,20 +300,40 @@ const routes = app
     return c.json({ success: true as const, data: toMediaItem(updated) });
   })
 
-  // Mise à jour de l'alt — R2 ne mute pas les métadonnées : réécriture sur place.
+  /**
+   * Mise à jour de l'alt — R2 ne mute pas les métadonnées d'un objet existant,
+   * il faut le réécrire. Mais le binaire n'a aucune raison de transiter par le
+   * tas de l'isolat pour ça : `obj.body` est repassé DIRECTEMENT en flux au
+   * `put`. L'ancienne version faisait `await obj.arrayBuffer()`, soit jusqu'à
+   * 50 Mo en mémoire pour changer une chaîne de quelques dizaines d'octets.
+   *
+   * Reste une réécriture complète côté R2 (donc un nouvel ETag, donc les caches
+   * invalidés alors que le binaire est identique). Sortir l'alt de
+   * `customMetadata` pour le mettre en D1 supprimerait le problème à la racine
+   * — voir P0-6 du rapport d'audit.
+   */
   .patch('/api/media/meta/:key{.+}', zValidator('json', mediaAltSchema), async (c) => {
     const key = c.req.param('key');
     const { alt } = c.req.valid('json');
     const obj = await c.env.MEDIA.get(key);
-    if (obj === null) return c.json({ success: false as const, error: 'Média introuvable' }, 404);
+    if (obj === null || obj.body === null) {
+      return c.json({ success: false as const, error: 'Média introuvable' }, 404);
+    }
     const putOpts: R2PutOptions = { customMetadata: { ...obj.customMetadata, alt } };
     if (obj.httpMetadata !== undefined) putOpts.httpMetadata = obj.httpMetadata;
-    const updated = await c.env.MEDIA.put(key, await obj.arrayBuffer(), putOpts);
+    const updated = await c.env.MEDIA.put(key, obj.body, putOpts);
     return c.json({ success: true as const, data: toMediaItem(updated) });
   })
 
+  // `R2.delete` ne dit pas si l'objet existait : l'admin affichait donc
+  // « supprimé » pour une clé inexistante ou mal saisie. Le `head` préalable
+  // coûte une sous-requête interne et rend la réponse honnête.
   .delete('/api/media/:key{.+}', async (c) => {
     const key = c.req.param('key');
+    const existing = await c.env.MEDIA.head(key);
+    if (existing === null) {
+      return c.json({ success: false as const, error: 'Média introuvable' }, 404);
+    }
     await c.env.MEDIA.delete(key);
     return c.json({ success: true as const, key });
   });
@@ -263,22 +342,69 @@ const routes = app
 // Range HTTP : forme simple `bytes=start-end` (suffisant pour <video>/<audio>)
 // ---------------------------------------------------------------------------
 
-function parseRange(header: string | undefined): { offset: number; length?: number } | undefined {
-  if (header === undefined) return undefined;
+/**
+ * Résultat d'analyse d'un en-tête `Range`.
+ * `unsatisfiable` déclenche un 416, distinct d'un en-tête simplement absent ou
+ * non géré — que la spécification demande de traiter comme une requête pleine.
+ */
+type RangeResult =
+  | { readonly kind: 'none' }
+  | { readonly kind: 'unsatisfiable' }
+  | { readonly kind: 'range'; readonly range: { offset: number; length?: number } };
+
+/**
+ * Analyse `Range`, formes `bytes=début-fin`, `bytes=début-` et `bytes=-N`.
+ *
+ * L'ancienne version ne gérait que les deux premières et ne validait pas les
+ * bornes : un `bytes=-500` (les N derniers octets, émis par plusieurs lecteurs
+ * vidéo) et un décalage au-delà de la taille du fichier passaient tels quels à
+ * R2, qui levait — soit une 500 sur une requête pourtant légitime.
+ *
+ * Le multi-range (`bytes=0-99,200-299`) n'est volontairement pas géré : la
+ * spécification autorise à l'ignorer et à répondre 200 avec le corps complet,
+ * ce que fait `kind: 'none'`.
+ */
+export function parseRange(header: string | undefined, size: number): RangeResult {
+  if (header === undefined) return { kind: 'none' };
+
+  // Suffixe : les N derniers octets.
+  const suffix = /^bytes=-(\d+)$/.exec(header);
+  if (suffix?.[1] !== undefined) {
+    const n = Number(suffix[1]);
+    if (n === 0) return { kind: 'unsatisfiable' };
+    const length = Math.min(n, size);
+    return { kind: 'range', range: { offset: size - length, length } };
+  }
+
   const m = /^bytes=(\d+)-(\d*)$/.exec(header);
-  if (m === null || m[1] === undefined) return undefined;
+  if (m?.[1] === undefined) return { kind: 'none' };
+
   const offset = Number(m[1]);
-  const end = m[2] !== undefined && m[2] !== '' ? Number(m[2]) : undefined;
-  if (end !== undefined && end < offset) return undefined;
-  // Sans borne de fin : {offset} seul = lecture jusqu'à la fin de l'objet (R2Range).
-  return end !== undefined ? { offset, length: end - offset + 1 } : { offset };
+  if (offset >= size) return { kind: 'unsatisfiable' };
+
+  const rawEnd = m[2] !== undefined && m[2] !== '' ? Number(m[2]) : undefined;
+  if (rawEnd === undefined) {
+    // Sans borne de fin : lecture jusqu'à la fin de l'objet (R2Range).
+    return { kind: 'range', range: { offset } };
+  }
+  if (rawEnd < offset) return { kind: 'unsatisfiable' };
+  // Une borne de fin au-delà du fichier est tronquée, pas rejetée (RFC 9110).
+  const end = Math.min(rawEnd, size - 1);
+  return { kind: 'range', range: { offset, length: end - offset + 1 } };
 }
 
 function stripEtag(value: string): string {
   return value.replace(/^W\//, '').replace(/^"|"$/g, '');
 }
 
-app.onError((err, c) => c.json({ success: false as const, error: err.message }, 500));
+app.onError((err, c) => {
+  const ref = reportServerError(err, {
+    service: 'media-worker',
+    method: c.req.method,
+    path: new URL(c.req.url).pathname,
+  });
+  return c.json({ success: false as const, error: serverErrorMessage(ref) }, 500);
+});
 
 // Exportation vitale pour l'Admin et le Front
 export type MediaAPI = typeof routes;

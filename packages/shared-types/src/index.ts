@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+export { reportServerError, serverErrorMessage, type ErrorContext } from './errors';
+
 // ---------------------------------------------------------------------------
 // Primitives communes
 // ---------------------------------------------------------------------------
@@ -107,6 +109,20 @@ export interface FieldDef {
  * Construit à la volée le schéma Zod des valeurs de champs personnalisés
  * d'un content type — c'est l'équivalent Edge de la validation Field API.
  */
+/**
+ * Borne des champs texte longs.
+ *
+ * D1 refuse toute ligne dépassant 2 000 000 octets, et `fields_json` agrège
+ * TOUS les champs d'un nœud dans une seule colonne. Sans borne, un éditeur qui
+ * colle un document volumineux ne l'apprenait qu'au moment d'enregistrer, sous
+ * la forme d'une erreur de base illisible — après avoir tout saisi.
+ *
+ * 256 Ko par champ laisse une marge confortable pour plusieurs champs longs
+ * sur un même nœud, tout en gardant l'erreur du côté validation, avec un
+ * message compréhensible.
+ */
+export const LONG_TEXT_MAX_CHARS = 256 * 1024;
+
 export function buildFieldValuesSchema(
   defs: readonly FieldDef[],
 ): z.ZodType<Record<string, unknown>> {
@@ -119,7 +135,7 @@ export function buildFieldValuesSchema(
         break;
       case 'textarea':
       case 'richtext':
-        s = z.string();
+        s = z.string().max(LONG_TEXT_MAX_CHARS);
         break;
       case 'number': {
         let n = z.number();
@@ -196,7 +212,9 @@ export const insertNodeSchema = z.object({
   id: z.string().uuid(),
   title: z.string().min(3).max(255),
   slug: slugSchema,
-  body: z.string().default(''),
+  // Même contrainte que les champs longs : `body` part dans la même ligne D1,
+  // plafonnée à 2 Mo.
+  body: z.string().max(LONG_TEXT_MAX_CHARS).default(''),
   /** Nom machine du content type (dynamique, plus d'enum figé) */
   contentType: machineNameSchema,
   status: z.boolean().default(true),

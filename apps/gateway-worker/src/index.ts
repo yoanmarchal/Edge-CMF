@@ -1,8 +1,15 @@
 import { Hono } from 'hono';
+import { cors } from 'hono/cors';
 import { hc } from 'hono/client';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
-import { machineNameSchema, slugParamSchema, machineParamSchema } from '@edge-cmf/shared-types';
+import {
+  machineNameSchema,
+  slugParamSchema,
+  machineParamSchema,
+  reportServerError,
+  serverErrorMessage,
+} from '@edge-cmf/shared-types';
 import type { ContentAPI } from '@edge-cmf/content-worker';
 
 /** Binding natif Cloudflare de rate limiting */
@@ -39,14 +46,67 @@ interface UpstreamResponse {
 
 /** Repropage la réponse du worker interne telle quelle. */
 function passthrough(res: UpstreamResponse): Response {
-  const out = new Response(res.body, { status: res.status, headers: res.headers });
-  out.headers.set('Access-Control-Allow-Origin', '*');
-  return out;
+  return new Response(res.body, { status: res.status, headers: res.headers });
 }
 
 // ---------------------------------------------------------------------------
-// Middleware 1 : clé API (x-api-key) — stockées dans KV sous "apikey:<clé>"
+// Middleware 0 : CORS — AVANT tout le reste
+//
+// L'API était annoncée « pour apps mobiles, autres front-ends, intégrations
+// tierces » mais restait inaccessible depuis un navigateur : `x-api-key` est
+// un en-tête non simple, donc tout appel cross-origin déclenche un préflight
+// OPTIONS — qui n'était pas géré. Et l'en-tête `Access-Control-Allow-Origin`
+// n'était posé que sur les succès : un 401 ou un 429 arrivait au client sous
+// forme d'erreur réseau opaque, impossible à diagnostiquer côté intégrateur.
+//
+// Monté en premier pour couvrir AUSSI les réponses des middlewares suivants.
 // ---------------------------------------------------------------------------
+app.use('*', cors({
+  origin: '*',
+  allowMethods: ['GET', 'OPTIONS'],
+  allowHeaders: ['x-api-key', 'content-type'],
+  exposeHeaders: ['X-Edge-Cache'],
+  maxAge: 86400,
+}));
+
+// ---------------------------------------------------------------------------
+// Middleware 1 : freinage par origine réseau, AVANT toute lecture KV
+//
+// La validation de clé faisait une lecture KV facturée à chaque requête, sans
+// aucun plafond, sur un worker exposé publiquement. Une clé bidon répétée
+// suffisait à générer du coût sans jamais être comptabilisée : le limiteur ne
+// s'exécutait qu'APRÈS. Ce premier passage large protège le chemin non
+// authentifié ; le limiteur fin par clé reste en aval.
+// ---------------------------------------------------------------------------
+app.use('/v1/*', async (c, next) => {
+  const rl = c.env.RL;
+  if (rl !== undefined) {
+    const source = c.req.header('cf-connecting-ip') ?? 'inconnue';
+    const { success } = await rl.limit({ key: `anon:${source}` });
+    if (!success) {
+      return c.json({ success: false as const, error: 'Limite de requêtes atteinte' }, 429);
+    }
+  }
+  await next();
+});
+
+// ---------------------------------------------------------------------------
+// Middleware 2 : clé API (x-api-key) — stockées dans KV sous "apikey:<clé>"
+// ---------------------------------------------------------------------------
+/**
+ * Empreinte SHA-256 hexadécimale d'une clé API.
+ *
+ * KV indexait les clés SOUS LEUR VALEUR EN CLAIR (`apikey:<clé>`). Un listing
+ * du namespace — via le tableau de bord, l'API REST ou un jeton d'API trop
+ * permissif — suffisait donc à récupérer les clés de tous les consommateurs et
+ * à les usurper. En stockant l'empreinte, le namespace ne contient plus rien
+ * d'exploitable : on peut vérifier une clé présentée, pas la reconstituer.
+ */
+async function apiKeyFingerprint(key: string): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(key));
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
 app.use('/v1/*', async (c, next) => {
   if (c.env.PUBLIC_API_OPEN === '1') {
     c.set('apiKey', 'open');
@@ -57,16 +117,19 @@ app.use('/v1/*', async (c, next) => {
   if (key === undefined || key.length === 0) {
     return c.json({ success: false as const, error: 'Clé API manquante (header x-api-key)' }, 401);
   }
-  const owner = await c.env.API_KEYS.get(`apikey:${key}`);
+  const fingerprint = await apiKeyFingerprint(key);
+  const owner = await c.env.API_KEYS.get(`apikey:${fingerprint}`);
   if (owner === null) {
     return c.json({ success: false as const, error: 'Clé API invalide' }, 403);
   }
-  c.set('apiKey', key);
+  // L'empreinte, et non la clé, sert de clé de rate limiting : la valeur
+  // secrète n'a pas à circuler plus loin que nécessaire.
+  c.set('apiKey', fingerprint);
   await next();
 });
 
 // ---------------------------------------------------------------------------
-// Middleware 2 : rate limiting par clé API (binding natif Cloudflare)
+// Middleware 3 : rate limiting fin, par clé API
 // ---------------------------------------------------------------------------
 app.use('/v1/*', async (c, next) => {
   const rl = c.env.RL;
@@ -114,7 +177,11 @@ app.use('/v1/*', async (c, next) => {
     const clone = c.res.clone();
     const toStore = new Response(clone.body, clone);
     toStore.headers.set('Cache-Control', 'public, s-maxage=60');
-    c.executionCtx.waitUntil(caches.default.put(cacheKey, toStore));
+    c.executionCtx.waitUntil(
+      caches.default.put(cacheKey, toStore).catch((error: unknown) => {
+        console.error({ event: 'cache.put_failed', pathname, error: String(error) });
+      }),
+    );
     c.res.headers.set('X-Edge-Cache', 'MISS');
   }
 });
@@ -178,6 +245,15 @@ app
     c.json({ success: false as const, error: 'Route inconnue — voir /v1/nodes, /v1/types…' }, 404),
   );
 
-app.onError((err, c) => c.json({ success: false as const, error: err.message }, 500));
+// Le gateway est le SEUL worker exposé publiquement : c'est ici qu'une fuite
+// de message interne atteint un tiers non authentifié.
+app.onError((err, c) => {
+  const ref = reportServerError(err, {
+    service: 'gateway-worker',
+    method: c.req.method,
+    path: new URL(c.req.url).pathname,
+  });
+  return c.json({ success: false as const, error: serverErrorMessage(ref) }, 500);
+});
 
 export default app;

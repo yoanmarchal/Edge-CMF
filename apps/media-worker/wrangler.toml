@@ -21,3 +21,13 @@ bucket_name = "edge-cmf-media"
 [[kv_namespaces]]
 binding = "CACHE_KV"
 id = "a8b2d2ae1d5143b3abb8f5426ff69183"
+
+# ---------------------------------------------------------------------------
+# Workers Logs — désactivé par défaut chez Cloudflare, donc à activer
+# explicitement. Sans ça, toute erreur avalée (échec d'un `waitUntil`, `catch`
+# muet, exception non gérée) est structurellement invisible en production :
+# on ne peut pas déboguer ce qu'on ne voit pas.
+# ---------------------------------------------------------------------------
+[observability]
+enabled = true
+head_sampling_rate = 1

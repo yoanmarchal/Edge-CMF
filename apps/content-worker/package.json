@@ -10,7 +10,8 @@
   "scripts": {
     "dev": "wrangler dev --port 8701 --inspector-port 9231 --persist-to ../../.wrangler-state",
     "deploy": "wrangler deploy",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p test/tsconfig.json",
+    "test": "vitest run",
     "db:generate": "drizzle-kit generate",
     "db:migrate:local": "wrangler d1 migrations apply edge-cmf-content --local --persist-to ../../.wrangler-state",
     "db:migrate:remote": "wrangler d1 migrations apply edge-cmf-content --remote"

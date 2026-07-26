@@ -23,5 +23,11 @@ export const GET: APIRoute = async ({ params, cookies, request }) => {
   if (ifNoneMatch !== null) headers.set('if-none-match', ifNoneMatch);
 
   const upstream = await mediaFetch(`/api/media/file/${key}`, { headers });
-  return new Response(upstream.body, { status: upstream.status, headers: upstream.headers });
+  const out = new Response(upstream.body, { status: upstream.status, headers: upstream.headers });
+  // Le media-worker répond `public, max-age=300` — correct pour la diffusion
+  // publique du front, faux ici : ce flux est réservé à une session admin et
+  // ne doit jamais atterrir dans un cache partagé. L'ETag est conservé, donc
+  // le cache navigateur (privé) continue de fonctionner.
+  out.headers.set('cache-control', 'private, max-age=300, must-revalidate');
+  return out;
 };

@@ -30,10 +30,17 @@ export async function getActiveTheme(): Promise<string> {
     const res = await contentClient().api.settings[':key'].$get({
       param: { key: THEME_SETTING_KEY },
     });
-    if (!res.ok) return resolveTheme(null);
+    if (!res.ok) {
+      // Le repli reste silencieux pour le visiteur — mais pas pour nous : un
+      // content-worker en panne se manifestait uniquement par un site qui
+      // repasse au thème par défaut, sans la moindre trace.
+      console.error({ event: 'theme.fetch_failed', status: res.status });
+      return resolveTheme(null);
+    }
     const { data } = await res.json();
     return resolveTheme(data.value);
-  } catch {
+  } catch (error: unknown) {
+    console.error({ event: 'theme.fetch_threw', error: String(error) });
     return resolveTheme(null);
   }
 }

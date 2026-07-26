@@ -13,10 +13,35 @@ workers_dev = true
 binding = "CONTENT_WORKER"
 service = "content-worker"
 
-# Clés API des consommateurs : `wrangler kv key put --binding=API_KEYS "apikey:<clé>" "<nom-client>"`
+# Clés API des consommateurs.
+#
+# La clé KV est l'EMPREINTE SHA-256 de la clé API, pas la clé elle-même : un
+# listing du namespace ne doit pas suffire à usurper un consommateur.
+#
+#   CLE=$(openssl rand -hex 32)                      # à transmettre au client
+#   EMPREINTE=$(printf '%s' "$CLE" | openssl dgst -sha256 -hex | awk '{print $2}')
+#   npx wrangler kv key put --binding=API_KEYS "apikey:$EMPREINTE" "nom-du-client"
+#
+# La clé en clair n'est affichée qu'une fois : elle n'est stockée nulle part
+# côté serveur. En cas de perte, on en régénère une et on supprime l'ancienne
+# empreinte.
+#
+# ⚠️ Migration : les clés enregistrées sous `apikey:<clé en clair>` ne sont plus
+# reconnues. Il faut les réenregistrer sous leur empreinte (les clés existantes
+# restent valables pour les clients, seule l'indexation change).
+#
+# ⚠️ À FAIRE AVANT LE PROCHAIN DÉPLOIEMENT — le namespace n'existe pas encore :
+#
+#     npx wrangler kv namespace create API_KEYS
+#
+# puis reporter l'identifiant retourné ci-dessous. Tant que la valeur est
+# invalide, `wrangler deploy` du gateway échoue — et il échouait APRÈS que les
+# migrations D1 et trois autres workers aient été déployés, laissant la
+# production dans un état partiel. Le `--dry-run` ajouté en tête du job de
+# déploiement (.github/workflows/deploy.yml) attrape désormais ce cas avant
+# que quoi que ce soit ne parte.
 [[kv_namespaces]]
 binding = "API_KEYS"
-# Remplacer après `wrangler kv namespace create API_KEYS`
 id = "REMPLACER_PAR_ID_KV_API_KEYS"
 
 # Même namespace KV que le content-worker (version de cache partagée)
@@ -29,9 +54,26 @@ id = "a8b2d2ae1d5143b3abb8f5426ff69183"
 [vars]
 PUBLIC_API_OPEN = "0"
 
-# Rate limiting natif Cloudflare (100 req / 60s par clé API)
-[[unsafe.bindings]]
+# Rate limiting natif Cloudflare — 100 requêtes / 60 s par clé API ET PAR
+# CENTRE DE DONNÉES Cloudflare. Ce n'est pas un quota global : un consommateur
+# réparti sur N POP obtient N × 100. Dimensionner en conséquence.
+#
+# `[[ratelimits]]` remplace l'ancien `[[unsafe.bindings]]` depuis wrangler 4.36
+# (le projet épingle 4.114) : même binding, configuration stable et typée.
+[[ratelimits]]
 name = "RL"
-type = "ratelimit"
 namespace_id = "1001"
-simple = { limit = 100, period = 60 }
+
+  [ratelimits.simple]
+  limit = 100
+  period = 60
+
+# ---------------------------------------------------------------------------
+# Workers Logs — désactivé par défaut chez Cloudflare, donc à activer
+# explicitement. Sans ça, toute erreur avalée (échec d'un `waitUntil`, `catch`
+# muet, exception non gérée) est structurellement invisible en production :
+# on ne peut pas déboguer ce qu'on ne voit pas.
+# ---------------------------------------------------------------------------
+[observability]
+enabled = true
+head_sampling_rate = 1

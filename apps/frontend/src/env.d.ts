@@ -41,4 +41,11 @@ interface CacheStorage {
  */
 declare module 'cloudflare:workers' {
   export const env: Cloudflare.Env;
+
+  /**
+   * Prolonge l'exécution après l'envoi de la réponse (jusqu'à 30 s).
+   * Remplace `ctx.waitUntil` : `Astro.locals.runtime` ayant disparu, c'est le
+   * seul accès au contexte d'exécution depuis un middleware Astro.
+   */
+  export function waitUntil(promise: Promise<unknown>): void;
 }

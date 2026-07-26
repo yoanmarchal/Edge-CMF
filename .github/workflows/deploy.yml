@@ -27,6 +27,14 @@ jobs:
       - name: TypeScript strict — zéro any toléré
         run: npm run typecheck
 
+      # Les tests s'exécutent dans workerd (vitest-pool-workers), pas dans
+      # Node : c'est la seule façon de vérifier des comportements de la
+      # plateforme — limite de paramètres liés D1, transactions implicites de
+      # `batch()`, en-têtes de la Cache API. Un test Node passerait au vert sur
+      # du code qui casse en production.
+      - name: Tests d'intégration (runtime Workers)
+        run: npm test
+
   deploy:
     needs: typecheck
     runs-on: ubuntu-latest
@@ -37,6 +45,24 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+
+      # 0. Validation à blanc de TOUTES les configurations avant de toucher à
+      # quoi que ce soit. Sans cette étape, une erreur de configuration sur le
+      # dernier worker (identifiant de namespace KV manquant, binding invalide)
+      # n'était découverte qu'APRÈS l'application des migrations D1 et le
+      # déploiement des workers précédents — production dans un état partiel,
+      # sans procédure de retour.
+      # Les deux apps Astro sont exclues : leur configuration n'est complète
+      # qu'après `astro build`, elles sont validées à leur propre étape.
+      - name: Validation à blanc des micro-workers
+        shell: bash
+        run: |
+          set -euo pipefail
+          for app in content-worker auth-worker media-worker gateway-worker; do
+            echo "::group::dry-run $app"
+            (cd "apps/$app" && npx wrangler deploy --dry-run --outdir "/tmp/dryrun/$app")
+            echo "::endgroup::"
+          done
 
       # 1. Les modifications de schémas (Migrations D1) s'exécutent en premier
       - name: Migrations D1 — content

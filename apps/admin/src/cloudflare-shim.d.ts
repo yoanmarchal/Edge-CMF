@@ -72,10 +72,19 @@ interface R2PutOptions {
   customMetadata?: Record<string, string>;
 }
 
+/**
+ * Valeurs acceptées par `R2Bucket.put`. Le flux (`ReadableStream`) est le cas
+ * NOMINAL pour les médias : il permet d'écrire dans R2 sans matérialiser le
+ * fichier dans le tas de l'isolat (128 Mo, partagés entre requêtes). Ce shim
+ * n'acceptait qu'un `ArrayBuffer`, ce qui interdisait précisément l'usage à
+ * privilégier.
+ */
+type R2PutValue = ReadableStream | ArrayBuffer | ArrayBufferView | string | Blob | null;
+
 interface R2Bucket {
   head(key: string): Promise<R2Object | null>;
   get(key: string, options?: { range?: R2Range }): Promise<R2ObjectBody | null>;
-  put(key: string, value: ArrayBuffer, options?: R2PutOptions): Promise<R2Object>;
+  put(key: string, value: R2PutValue, options?: R2PutOptions): Promise<R2Object>;
   delete(key: string): Promise<void>;
   list(options?: R2ListOptions): Promise<R2Objects>;
 }

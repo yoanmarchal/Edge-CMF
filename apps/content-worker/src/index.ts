@@ -2,8 +2,7 @@ import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
 import { drizzle } from 'drizzle-orm/d1';
-import type { DrizzleD1Database } from 'drizzle-orm/d1';
-import { and, asc, count, desc, eq, inArray } from 'drizzle-orm';
+import { and, asc, count, desc, eq, inArray, sql } from 'drizzle-orm';
 import {
   insertNodeSchema,
   updateNodeSchema,
@@ -19,6 +18,8 @@ import {
   fieldTypeEnum,
   fieldSettingsSchema,
   buildFieldValuesSchema,
+  reportServerError,
+  serverErrorMessage,
   type ContentStats,
   type FieldDef,
   type InsertParagraph,
@@ -37,6 +38,7 @@ import {
   type TermRow,
 } from './schema';
 import { getTagSignature, bumpTags, buildCacheKey, tagsForRead, tagsForMutation } from './cache';
+import { chunkRows, runBatch, type DB, type Statement } from './batch';
 
 const settingKeyParamSchema = z.object({ key: z.string().min(1).max(64) });
 const settingValueSchema = z.object({ value: z.string().max(256) });
@@ -45,8 +47,6 @@ type Bindings = {
   DB: D1Database;
   CACHE_KV: KVNamespace;
 };
-
-type DB = DrizzleD1Database<Record<string, never>>;
 
 const app = new Hono<{ Bindings: Bindings }>();
 
@@ -113,11 +113,19 @@ function hydrateNode(
   };
 }
 
-async function replaceNodeTerms(db: DB, nodeId: string, termIds: string[]): Promise<void> {
-  await db.delete(nodeTerms).where(eq(nodeTerms.nodeId, nodeId));
-  if (termIds.length > 0) {
-    await db.insert(nodeTerms).values(termIds.map((termId) => ({ nodeId, termId })));
+/**
+ * Instructions remplaçant les termes d'un nœud — À EXÉCUTER DANS UN BATCH.
+ *
+ * `node_terms` a 2 colonnes : au-delà de 45 termes environ, un `INSERT` unique
+ * dépasserait les 100 paramètres liés autorisés par D1. Le découpage n'est pas
+ * une optimisation, c'est la condition pour que l'écriture aboutisse.
+ */
+function replaceNodeTermsStatements(db: DB, nodeId: string, termIds: string[]): Statement[] {
+  const statements: Statement[] = [db.delete(nodeTerms).where(eq(nodeTerms.nodeId, nodeId))];
+  for (const batch of chunkRows(termIds, 2)) {
+    statements.push(db.insert(nodeTerms).values(batch.map((termId) => ({ nodeId, termId }))));
   }
+  return statements;
 }
 
 // ---------------------------------------------------------------------------
@@ -149,22 +157,53 @@ async function validateParagraphs(
   db: DB,
   paragraphs: InsertParagraph[],
 ): Promise<{ ok: true; data: InsertParagraph[] } | { ok: false; error: string }> {
-  const defsCache = new Map<string, FieldDef[]>();
+  if (paragraphs.length === 0) return { ok: true, data: [] };
+
+  // Deux requêtes, à paramètres CONSTANTS (sous-requête plutôt qu'une liste
+  // d'identifiants), au lieu d'une requête par type distinct exécutée EN SÉRIE
+  // dans la boucle. Les bundles sont de la configuration : ils sont peu
+  // nombreux et se chargent intégralement sans risque.
+  const paragraphTypeIds = db
+    .select({ id: contentTypes.id })
+    .from(contentTypes)
+    .where(eq(contentTypes.kind, 'paragraph'));
+
+  const [typeRows, fieldRows] = await db.batch([
+    db.select({ id: contentTypes.id }).from(contentTypes).where(eq(contentTypes.kind, 'paragraph')),
+    db
+      .select()
+      .from(fields)
+      .where(inArray(fields.contentTypeId, paragraphTypeIds))
+      .orderBy(asc(fields.weight), asc(fields.name)),
+  ]);
+
+  const known = new Set(typeRows.map((t) => t.id));
+  const defsByType = new Map<string, FieldDef[]>();
+  for (const row of fieldRows) {
+    const list = defsByType.get(row.contentTypeId);
+    if (list === undefined) defsByType.set(row.contentTypeId, [rowToFieldDef(row)]);
+    else list.push(rowToFieldDef(row));
+  }
+
+  // Le schéma Zod est COMPILÉ UNE FOIS par type. `buildFieldValuesSchema` était
+  // rappelé à chaque itération, y compris quand les définitions venaient du
+  // cache : trente paragraphes du même type reconstruisaient trente fois le
+  // même schéma, du CPU pur sur le chemin d'écriture.
+  const schemaByType = new Map<string, ReturnType<typeof buildFieldValuesSchema>>();
+  const schemaFor = (typeId: string) => {
+    const cached = schemaByType.get(typeId);
+    if (cached !== undefined) return cached;
+    const built = buildFieldValuesSchema(defsByType.get(typeId) ?? []);
+    schemaByType.set(typeId, built);
+    return built;
+  };
+
   const out: InsertParagraph[] = [];
   for (const [i, p] of paragraphs.entries()) {
-    if (!defsCache.has(p.type)) {
-      const [type] = await db
-        .select({ id: contentTypes.id, kind: contentTypes.kind })
-        .from(contentTypes)
-        .where(eq(contentTypes.id, p.type))
-        .limit(1);
-      if (type === undefined || type.kind !== 'paragraph') {
-        return { ok: false, error: `Type de paragraphe inconnu : ${p.type}` };
-      }
-      defsCache.set(p.type, await loadFieldDefs(db, p.type));
+    if (!known.has(p.type)) {
+      return { ok: false, error: `Type de paragraphe inconnu : ${p.type}` };
     }
-    const defs = defsCache.get(p.type) ?? [];
-    const parsed = buildFieldValuesSchema(defs).safeParse(p.fields);
+    const parsed = schemaFor(p.type).safeParse(p.fields);
     if (!parsed.success) {
       return { ok: false, error: `Paragraphe ${i + 1} (${p.type}) invalide : ${parsed.error.message}` };
     }
@@ -173,23 +212,32 @@ async function validateParagraphs(
   return { ok: true, data: out };
 }
 
-async function replaceNodeParagraphs(
+/**
+ * Instructions remplaçant les paragraphes d'un nœud — À EXÉCUTER DANS UN BATCH.
+ *
+ * `node_paragraphs` a 5 colonnes : un `INSERT` unique cassait dès 21 blocs
+ * (5 × 21 > 100 paramètres liés). Le poids est calculé sur l'index GLOBAL et
+ * non sur celui du lot, sinon le découpage réordonnerait les paragraphes.
+ */
+function replaceNodeParagraphsStatements(
   db: DB,
   nodeId: string,
   paragraphs: InsertParagraph[],
-): Promise<void> {
-  await db.delete(nodeParagraphs).where(eq(nodeParagraphs.nodeId, nodeId));
-  if (paragraphs.length > 0) {
-    await db.insert(nodeParagraphs).values(
-      paragraphs.map((p, i) => ({
-        id: crypto.randomUUID(),
-        nodeId,
-        paragraphType: p.type,
-        fieldsJson: JSON.stringify(p.fields),
-        weight: p.weight ?? i,
-      })),
-    );
+): Statement[] {
+  const rows = paragraphs.map((p, i) => ({
+    id: crypto.randomUUID(),
+    nodeId,
+    paragraphType: p.type,
+    fieldsJson: JSON.stringify(p.fields),
+    weight: p.weight ?? i,
+  }));
+  const statements: Statement[] = [
+    db.delete(nodeParagraphs).where(eq(nodeParagraphs.nodeId, nodeId)),
+  ];
+  for (const batch of chunkRows(rows, 5)) {
+    statements.push(db.insert(nodeParagraphs).values(batch));
   }
+  return statements;
 }
 
 // ---------------------------------------------------------------------------
@@ -203,7 +251,21 @@ app.use('/api/*', async (c, next) => {
   if (c.req.method !== 'GET') {
     await next();
     if (c.res.ok) {
-      c.executionCtx.waitUntil(bumpTags(c.env.CACHE_KV, tagsForMutation(pathname)));
+      // L'échec de ce `put` est le pire scénario silencieux du projet : le
+      // contenu est bien enregistré, mais le cache n'est jamais invalidé — le
+      // site sert du périmé sans que rien ne l'indique. KV n'accepte qu'UNE
+      // écriture par seconde et par clé (P1-2) : sur une rafale de mutations,
+      // ce cas se produit réellement.
+      c.executionCtx.waitUntil(
+        bumpTags(c.env.CACHE_KV, tagsForMutation(pathname)).catch((error: unknown) => {
+          console.error({
+            event: 'cache.bump_tags_failed',
+            pathname,
+            method: c.req.method,
+            error: String(error),
+          });
+        }),
+      );
     }
     return;
   }
@@ -213,6 +275,13 @@ app.use('/api/*', async (c, next) => {
   const cached = await caches.default.match(cacheKey);
   if (cached !== undefined) {
     c.res = new Response(cached.body, cached);
+    // Le `Cache-Control: public` ne concerne QUE le cache edge interne, qui
+    // vient de faire son travail. Le laisser sortir d'ici, c'était autoriser
+    // n'importe quel intermédiaire à stocker une réponse potentiellement
+    // authentifiée : l'admin appelle ce worker avec `all=1`, donc avec les
+    // brouillons. Le MISS ne posait pas l'en-tête, le HIT si — un écart de
+    // comportement qui rendait le problème intermittent.
+    c.res.headers.delete('Cache-Control');
     c.res.headers.set('X-Edge-Cache', 'HIT');
     return;
   }
@@ -222,8 +291,16 @@ app.use('/api/*', async (c, next) => {
   if (c.res.ok) {
     const clone = c.res.clone();
     const toStore = new Response(clone.body, clone);
+    // TTL volontairement court tant que P1-2 (limite d'une écriture KV par
+    // seconde sur les clés de tags) n'est pas corrigé : si un `bumpTags` est
+    // silencieusement perdu, ces 60 s bornent la durée du contenu périmé.
+    // À rallonger en même temps que P1-2, pas avant.
     toStore.headers.set('Cache-Control', 'public, s-maxage=60');
-    c.executionCtx.waitUntil(caches.default.put(cacheKey, toStore));
+    c.executionCtx.waitUntil(
+      caches.default.put(cacheKey, toStore).catch((error: unknown) => {
+        console.error({ event: 'cache.put_failed', pathname, error: String(error) });
+      }),
+    );
     c.res.headers.set('X-Edge-Cache', 'MISS');
   }
 });
@@ -267,17 +344,29 @@ const routes = app
    */
   .get('/api/stats', async (c) => {
     const db = drizzle(c.env.DB);
-    const [[nodes], [published], [nodeTypes], [paragraphTypes]] = await Promise.all([
-      db.select({ n: count() }).from(contentNodes),
-      db.select({ n: count() }).from(contentNodes).where(eq(contentNodes.status, true)),
-      db.select({ n: count() }).from(contentTypes).where(eq(contentTypes.kind, 'node')),
-      db.select({ n: count() }).from(contentTypes).where(eq(contentTypes.kind, 'paragraph')),
+    // Deux requêtes agrégées au lieu de quatre comptages. Le `Promise.all`
+    // précédent donnait l'illusion du parallélisme : une base D1 est
+    // mono-thread et traite ses requêtes une à une, les quatre étaient donc
+    // sérialisées côté base tout en consommant quatre sous-requêtes.
+    const [[nodeStats], [typeStats]] = await db.batch([
+      db
+        .select({
+          total: count(),
+          published: sql<number>`coalesce(sum(case when ${contentNodes.status} then 1 else 0 end), 0)`,
+        })
+        .from(contentNodes),
+      db
+        .select({
+          nodes: sql<number>`coalesce(sum(case when ${contentTypes.kind} = 'node' then 1 else 0 end), 0)`,
+          paragraphs: sql<number>`coalesce(sum(case when ${contentTypes.kind} = 'paragraph' then 1 else 0 end), 0)`,
+        })
+        .from(contentTypes),
     ]);
     const data: ContentStats = {
-      nodes: nodes?.n ?? 0,
-      publishedNodes: published?.n ?? 0,
-      types: nodeTypes?.n ?? 0,
-      paragraphTypes: paragraphTypes?.n ?? 0,
+      nodes: nodeStats?.total ?? 0,
+      publishedNodes: Number(nodeStats?.published ?? 0),
+      types: Number(typeStats?.nodes ?? 0),
+      paragraphTypes: Number(typeStats?.paragraphs ?? 0),
     };
     return c.json({ data });
   })
@@ -311,22 +400,24 @@ const routes = app
   .delete('/api/types/:id', zValidator('param', machineParamSchema), async (c) => {
     const { id } = c.req.valid('param');
     const db = drizzle(c.env.DB);
-    const [nodeOfType] = await db
-      .select({ id: contentNodes.id })
-      .from(contentNodes)
-      .where(eq(contentNodes.contentType, id))
-      .limit(1);
-    if (nodeOfType !== undefined) {
+    // Deux usages possibles d'un bundle : comme type de nœud, ou comme type de
+    // paragraphe instancié. Seul le premier était vérifié — supprimer un type
+    // de paragraphe encore utilisé violait la clé étrangère `paragraph_type`
+    // (sans ON DELETE) et sortait en 500 SQLite au lieu du 409 attendu.
+    const [nodesOfType, paragraphsOfType] = await db.batch([
+      db.select({ id: contentNodes.id }).from(contentNodes).where(eq(contentNodes.contentType, id)).limit(1),
+      db.select({ id: nodeParagraphs.id }).from(nodeParagraphs).where(eq(nodeParagraphs.paragraphType, id)).limit(1),
+    ]);
+    if (nodesOfType.length > 0 || paragraphsOfType.length > 0) {
       return c.json(
         { success: false as const, error: 'Des contenus utilisent encore ce type' },
         409,
       );
     }
-    await db.delete(fields).where(eq(fields.contentTypeId, id));
-    const deleted = await db
-      .delete(contentTypes)
-      .where(eq(contentTypes.id, id))
-      .returning({ id: contentTypes.id });
+    const [, deleted] = await db.batch([
+      db.delete(fields).where(eq(fields.contentTypeId, id)),
+      db.delete(contentTypes).where(eq(contentTypes.id, id)).returning({ id: contentTypes.id }),
+    ]);
     if (deleted.length === 0) {
       return c.json({ success: false as const, error: 'Type introuvable' }, 404);
     }
@@ -391,23 +482,23 @@ const routes = app
   .delete('/api/vocabularies/:id', zValidator('param', machineParamSchema), async (c) => {
     const { id } = c.req.valid('param');
     const db = drizzle(c.env.DB);
-    const vocabTerms = await db
-      .select({ id: terms.id })
-      .from(terms)
-      .where(eq(terms.vocabularyId, id));
-    if (vocabTerms.length > 0) {
-      await db.delete(nodeTerms).where(
-        inArray(
-          nodeTerms.termId,
-          vocabTerms.map((t) => t.id),
+
+    // Les identifiants de termes restent DANS SQL (sous-requête) au lieu d'être
+    // rapatriés puis réinjectés en paramètres : un vocabulaire de plus de 100
+    // termes dépassait sinon la limite de paramètres liés de D1 — précisément
+    // au moment le plus destructeur, la suppression.
+    const [, , deleted] = await db.batch([
+      db
+        .delete(nodeTerms)
+        .where(
+          inArray(
+            nodeTerms.termId,
+            db.select({ id: terms.id }).from(terms).where(eq(terms.vocabularyId, id)),
+          ),
         ),
-      );
-      await db.delete(terms).where(eq(terms.vocabularyId, id));
-    }
-    const deleted = await db
-      .delete(vocabularies)
-      .where(eq(vocabularies.id, id))
-      .returning({ id: vocabularies.id });
+      db.delete(terms).where(eq(terms.vocabularyId, id)),
+      db.delete(vocabularies).where(eq(vocabularies.id, id)).returning({ id: vocabularies.id }),
+    ]);
     if (deleted.length === 0) {
       return c.json({ success: false as const, error: 'Vocabulaire introuvable' }, 404);
     }
@@ -436,8 +527,10 @@ const routes = app
   .delete('/api/terms/:id', zValidator('param', idParamSchema), async (c) => {
     const { id } = c.req.valid('param');
     const db = drizzle(c.env.DB);
-    await db.delete(nodeTerms).where(eq(nodeTerms.termId, id));
-    const deleted = await db.delete(terms).where(eq(terms.id, id)).returning({ id: terms.id });
+    const [, deleted] = await db.batch([
+      db.delete(nodeTerms).where(eq(nodeTerms.termId, id)),
+      db.delete(terms).where(eq(terms.id, id)).returning({ id: terms.id }),
+    ]);
     if (deleted.length === 0) {
       return c.json({ success: false as const, error: 'Terme introuvable' }, 404);
     }
@@ -536,10 +629,13 @@ const routes = app
       return c.json({ success: false as const, error: parsedParagraphs.error }, 400);
     }
 
+    // Nœud, termes et paragraphes partent en UNE transaction implicite : un
+    // échec sur les paragraphes ne peut plus laisser un nœud publié à moitié
+    // écrit, et les 5 allers-retours D1 séquentiels deviennent un seul.
+    const now = new Date();
     try {
-      await db
-        .insert(contentNodes)
-        .values({
+      await runBatch(db, [
+        db.insert(contentNodes).values({
           id: input.id,
           title: input.title,
           slug: input.slug,
@@ -547,15 +643,20 @@ const routes = app
           contentType: input.contentType,
           status: input.status,
           fieldsJson: JSON.stringify(parsedFields.data),
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        })
-        .run();
-      await replaceNodeTerms(db, input.id, input.termIds);
-      await replaceNodeParagraphs(db, input.id, parsedParagraphs.data);
+          createdAt: now,
+          updatedAt: now,
+        }),
+        ...replaceNodeTermsStatements(db, input.id, input.termIds),
+        ...replaceNodeParagraphsStatements(db, input.id, parsedParagraphs.data),
+      ]);
       return c.json({ success: true as const, message: 'Node créé avec succès', id: input.id }, 201);
     } catch (error) {
-      return c.json({ success: false as const, error: (error as Error).message }, 500);
+      const ref = reportServerError(error, {
+        service: 'content-worker',
+        method: 'POST',
+        path: '/api/nodes',
+      });
+      return c.json({ success: false as const, error: serverErrorMessage(ref) }, 500);
     }
   })
 
@@ -591,29 +692,34 @@ const routes = app
         fieldsJson = JSON.stringify(parsedFields.data);
       }
 
-      await db
-        .update(contentNodes)
-        .set({
-          ...(patch.title !== undefined ? { title: patch.title } : {}),
-          ...(patch.slug !== undefined ? { slug: patch.slug } : {}),
-          ...(patch.body !== undefined ? { body: patch.body } : {}),
-          ...(patch.contentType !== undefined ? { contentType: patch.contentType } : {}),
-          ...(patch.status !== undefined ? { status: patch.status } : {}),
-          ...(fieldsJson !== undefined ? { fieldsJson } : {}),
-          updatedAt: new Date(),
-        })
-        .where(eq(contentNodes.id, id));
-
-      if (patch.termIds !== undefined) {
-        await replaceNodeTerms(db, id, patch.termIds);
-      }
+      // Les paragraphes sont validés AVANT d'ouvrir le batch : un contenu
+      // invalide doit sortir en 400 sans avoir touché la base.
+      let paragraphStatements: Statement[] = [];
       if (patch.paragraphs !== undefined) {
         const parsedParagraphs = await validateParagraphs(db, patch.paragraphs);
         if (!parsedParagraphs.ok) {
           return c.json({ success: false as const, error: parsedParagraphs.error }, 400);
         }
-        await replaceNodeParagraphs(db, id, parsedParagraphs.data);
+        paragraphStatements = replaceNodeParagraphsStatements(db, id, parsedParagraphs.data);
       }
+
+      // Mise à jour, termes et paragraphes en une transaction implicite.
+      await runBatch(db, [
+        db
+          .update(contentNodes)
+          .set({
+            ...(patch.title !== undefined ? { title: patch.title } : {}),
+            ...(patch.slug !== undefined ? { slug: patch.slug } : {}),
+            ...(patch.body !== undefined ? { body: patch.body } : {}),
+            ...(patch.contentType !== undefined ? { contentType: patch.contentType } : {}),
+            ...(patch.status !== undefined ? { status: patch.status } : {}),
+            ...(fieldsJson !== undefined ? { fieldsJson } : {}),
+            updatedAt: new Date(),
+          })
+          .where(eq(contentNodes.id, id)),
+        ...(patch.termIds !== undefined ? replaceNodeTermsStatements(db, id, patch.termIds) : []),
+        ...paragraphStatements,
+      ]);
       return c.json({ success: true as const, id });
     },
   )
@@ -621,11 +727,15 @@ const routes = app
   .delete('/api/nodes/:id', zValidator('param', idParamSchema), async (c) => {
     const { id } = c.req.valid('param');
     const db = drizzle(c.env.DB);
-    await db.delete(nodeTerms).where(eq(nodeTerms.nodeId, id));
-    const deleted = await db
-      .delete(contentNodes)
-      .where(eq(contentNodes.id, id))
-      .returning({ id: contentNodes.id });
+    // Les deux tables de jonction sont purgées EXPLICITEMENT : `node_terms`
+    // l'était déjà à la main, `node_paragraphs` reposait sur la cascade FK.
+    // Deux stratégies opposées dans la même fonction rendaient le résultat
+    // dépendant de l'application effective des contraintes par D1.
+    const [, , deleted] = await db.batch([
+      db.delete(nodeTerms).where(eq(nodeTerms.nodeId, id)),
+      db.delete(nodeParagraphs).where(eq(nodeParagraphs.nodeId, id)),
+      db.delete(contentNodes).where(eq(contentNodes.id, id)).returning({ id: contentNodes.id }),
+    ]);
     if (deleted.length === 0) {
       return c.json({ success: false as const, error: 'Nœud introuvable' }, 404);
     }
@@ -664,7 +774,14 @@ const routes = app
     },
   );
 
-app.onError((err, c) => c.json({ success: false as const, error: err.message }, 500));
+app.onError((err, c) => {
+  const ref = reportServerError(err, {
+    service: 'content-worker',
+    method: c.req.method,
+    path: new URL(c.req.url).pathname,
+  });
+  return c.json({ success: false as const, error: serverErrorMessage(ref) }, 500);
+});
 
 // Exportation vitale pour le Front-End et le Gateway
 export type ContentAPI = typeof routes;

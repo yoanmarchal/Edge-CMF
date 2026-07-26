@@ -2,6 +2,7 @@
 import Base from '../layouts/Base.astro';
 import FieldValue from '../components/FieldValue.astro';
 import { contentClient } from '../lib/api';
+import { collectMediaPaths, versionedMediaUrls } from '../lib/media-versions';
 
 const { slug } = Astro.params;
 if (slug === undefined || !/^[a-z0-9-]+$/.test(slug)) {
@@ -16,6 +17,16 @@ if (!res.ok) {
 }
 const { data: node } = await res.json();
 const fieldEntries = Object.entries(node.fields);
+
+// Préchauffage : toutes les versions de médias de la page sont résolues ICI,
+// en une seule salve dédoublonnée. Sans ça, chaque <FieldValue> attendait sa
+// propre sous-requête dans son frontmatter — donc en SÉRIE, Astro rendant les
+// composants les uns après les autres. Les appels des composants tombent
+// désormais tous dans le cache d'isolat.
+await versionedMediaUrls([
+  ...collectMediaPaths(node.fields),
+  ...node.paragraphs.flatMap((p) => collectMediaPaths(p.fields)),
+]);
 ---
 
 <Base title={node.title}>

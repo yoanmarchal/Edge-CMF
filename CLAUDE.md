@@ -10,7 +10,7 @@ CMF headless 100 % Edge (alternative à Drupal) : monorepo npm workspaces, micro
 
 | Workspace | Rôle | Exposé ? |
 |---|---|---|
-| `packages/shared-types` | Contrats Zod partagés + `buildFieldValuesSchema` (Field API dynamique) | — |
+| `packages/shared-types` | Contrats Zod partagés + `buildFieldValuesSchema` (Field API dynamique) + `reportServerError` (erreurs 500 corrélées) | — |
 | `apps/content-worker` | Types de contenu, champs, taxonomies, nœuds, paragraphes, settings — D1 `edge-cmf-content` + cache | NON (binding interne) |
 | `apps/auth-worker` | JWT, PBKDF2, RBAC (admin/editor/viewer) — D1 `edge-cmf-users` | NON (binding interne) |
 | `apps/media-worker` | Médias R2 (bucket `edge-cmf-media`, métadonnées en `customMetadata`) | NON (binding interne) |
@@ -23,6 +23,7 @@ CMF headless 100 % Edge (alternative à Drupal) : monorepo npm workspaces, micro
 ```bash
 npm run dev                 # tout lancer (migrations locales + 6 process, ports 8701-8704, 4321, 4322)
 npm run typecheck           # TS strict sur tous les workspaces — DOIT passer avant tout commit
+npm test                    # tests dans workerd (content) + Node (media) — DOIT passer avant tout commit
 npm run build               # build all
 npm run db:migrate:local    # migrations D1 locales (content + users) → .wrangler-state/
 npm run dev:content|auth|media|gateway|front|admin   # process individuels
@@ -40,6 +41,11 @@ Ports dev : content 8701, auth 8702, gateway 8703, media 8704, frontend 4321, ad
 6. **Chaîne complète pour un champ/une entité** : schéma Zod (shared-types) → table/migration Drizzle → route worker → proxy admin `/api/*` → îlot Preact → rendu front (`FieldValue.astro`). Ne jamais s'arrêter à mi-chemin (skill `add-field-type`).
 7. Workers < 100 Ko gzip. Pas de dépendance lourde côté worker ; `sharp` n'existe pas dans workerd (`imageService: 'compile'`).
 8. Admin : **aucun SSR de données** — pages Astro = garde de session (cookie httpOnly `cmf_session`) + îlot Preact `client:only` qui consomme `/api/*`.
+9. **Toute écriture composée passe par `db.batch()`** (`content-worker/src/batch.ts`). D1 n'a pas de transaction interactive : une suite de `await db.insert(...)` n'offre AUCUNE atomicité et multiplie les allers-retours.
+10. **Toute insertion en lot est découpée** via `chunkRows(rows, colonnes)`. D1 plafonne à **100 paramètres liés par instruction** (`lignes × colonnes`) — la limite s'applique aussi à chaque instruction d'un batch. Ne jamais injecter une liste d'identifiants de taille non bornée dans un `inArray` : préférer une sous-requête.
+11. **Aucune réponse de l'admin n'est cachable** : `proxyResponse` force `private, no-store`. Les workers internes posent leurs propres en-têtes de cache, ils ne doivent pas traverser jusqu'au navigateur.
+12. **Rien ne se streame en mémoire** : uploads et objets R2 circulent en `ReadableStream` (`request.body`, `file.stream()`, `obj.body`). La limite est de **128 Mo par isolat**, partagés entre requêtes concurrentes.
+13. **Une 500 ne divulgue jamais de message interne** : `reportServerError()` journalise le détail et renvoie une référence de corrélation. Les messages 4xx, eux, sont écrits pour l'utilisateur et restent intacts.
 
 ## Pièges connus (vérifiés dans le code)
 
@@ -47,6 +53,10 @@ Ports dev : content 8701, auth 8702, gateway 8703, media 8704, frontend 4321, ad
 - **État D1/KV local partagé** : tous les process persistent dans `../../.wrangler-state` (`persistState` des configs Astro + `--persist-to` des workers). Ne pas casser ça, sinon chaque process voit une BDD vide.
 - **`auxiliaryWorkers`** dans `astro.config.mjs` démarre automatiquement les workers internes en dev — inutile de les lancer à part pour travailler seulement sur front ou admin.
 - **wrangler épinglé** : `overrides.wrangler = 4.114.0` dans le package.json racine.
+- **KV n'accepte qu'UNE écriture par seconde et par clé** (payant comme gratuit). Les clés `cache-tag:*` sont fixes et partagées par toutes les mutations : sur une rafale, des invalidations sont perdues. L'échec est désormais journalisé (`cache.bump_tags_failed`) mais **non résolu** — c'est pour ça que le `s-maxage` du content-worker reste à 60 s. Correctif de fond : déplacer le compteur vers un Durable Object.
+- **L'horloge est figée dans un Worker** entre deux opérations d'E/S : `Date.now()` seul ne produit pas de valeur unique au sein d'une invocation. D'où le suffixe aléatoire des versions de tags.
+- **`drizzle()` n'accepte pas un `D1DatabaseSession`** (`AnyD1Database = D1Database | MiniflareD1Database`) : la read replication D1 (`withSession`) demanderait un cast structurel et la propagation du bookmark `x-d1-bookmark` à travers gateway, front et admin.
+- **`@cloudflare/vitest-pool-workers`** : l'API est `cloudflareTest()` (plugin Vite) et `readD1Migrations` s'importe depuis la RACINE du paquet — la documentation en ligne le place encore sous `/config`, export qui n'existe plus. `env` vient de `cloudflare:workers`, pas de `cloudflare:test`.
 - Migrations D1 = SQL brut numéroté dans `apps/*/migrations/` (pas de drizzle-kit generate en CI) ; appliquées avant le deploy des workers, jamais l'inverse.
 
 ## Style de code

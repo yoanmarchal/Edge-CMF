@@ -10,6 +10,7 @@
   "scripts": {
     "dev": "npm run db:migrate:local && concurrently -k -n content,auth,media,gateway,front,admin -c blue,magenta,white,yellow,green,cyan \"npm run dev:content\" \"npm run dev:auth\" \"npm run dev:media\" \"wait-on -t 60000 tcp:8701 tcp:8702 && npm run dev:gateway\" \"wait-on -t 90000 tcp:8703 tcp:8704 && npm run dev:front\" \"wait-on -t 90000 tcp:8703 tcp:8704 && npm run dev:admin\"",
     "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
     "build": "npm run build --workspaces --if-present",
     "dev:content": "npm run dev -w @edge-cmf/content-worker",
     "dev:auth": "npm run dev -w @edge-cmf/auth-worker",
@@ -24,8 +25,10 @@
     "db:migrate:remote": "npm run db:migrate:remote -w @edge-cmf/content-worker && npm run db:migrate:remote -w @edge-cmf/auth-worker"
   },
   "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.18.8",
     "concurrently": "^9.1.2",
     "typescript": "^5.7.3",
+    "vitest": "^4.1.10",
     "wait-on": "^8.0.3"
   },
   "overrides": {

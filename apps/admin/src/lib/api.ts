@@ -50,5 +50,13 @@ export const SESSION_COOKIE = 'cmf_session';
  * `contentClient`/`authClient` sans passer par `Response.json(...)`.
  */
 export function proxyResponse(res: Response): Response {
-  return new Response(res.body, { status: res.status, headers: res.headers });
+  const out = new Response(res.body, { status: res.status, headers: res.headers });
+  // Défense en profondeur : TOUTE réponse de l'admin est authentifiée par
+  // session, aucune ne doit être stockable. Les workers internes posent leurs
+  // propres en-têtes de cache pour leur cache edge ; ils n'ont aucune raison
+  // de traverser jusqu'au navigateur. On ne fait pas confiance à l'amont pour
+  // ça — c'est ici qu'est la frontière avec le réseau public.
+  out.headers.set('Cache-Control', 'private, no-store');
+  out.headers.delete('X-Edge-Cache');
+  return out;
 }

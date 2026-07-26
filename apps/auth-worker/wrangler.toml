@@ -14,7 +14,35 @@ database_name = "edge-cmf-users"
 database_id = "b4bd0099-0c19-42fe-9273-34bb84888f9e"
 migrations_dir = "migrations"
 
+# Freinage des tentatives d'authentification (5 par minute et par clé, la clé
+# étant l'e-mail visé ou l'IP source — voir `loginAllowed` dans src/index.ts).
+#
+# `[[ratelimits]]` est la configuration stable ; `[[unsafe.bindings]]` était la
+# forme historique. Le namespace_id doit être unique dans le compte : 1001 est
+# déjà pris par le gateway-worker.
+#
+# ATTENTION : la limite s'applique PAR CENTRE DE DONNÉES Cloudflare, pas au
+# global.
+[[ratelimits]]
+name = "LOGIN_RL"
+namespace_id = "1002"
+
+  [ratelimits.simple]
+  limit = 5
+  period = 60
+
 # Secrets (à définir via `wrangler secret put JWT_SECRET`
 # et localement dans .dev.vars) :
 # JWT_SECRET  — clé de signature des JWT
-# SETUP_TOKEN — jeton unique autorisant la création du premier admin
+# SETUP_TOKEN — jeton de bootstrap, accepté UNIQUEMENT tant que la table
+#               `users` est vide (il devient inopérant dès le premier compte)
+
+# ---------------------------------------------------------------------------
+# Workers Logs — désactivé par défaut chez Cloudflare, donc à activer
+# explicitement. Sans ça, toute erreur avalée (échec d'un `waitUntil`, `catch`
+# muet, exception non gérée) est structurellement invisible en production :
+# on ne peut pas déboguer ce qu'on ne voit pas.
+# ---------------------------------------------------------------------------
+[observability]
+enabled = true
+head_sampling_rate = 1
